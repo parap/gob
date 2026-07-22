@@ -58,6 +58,35 @@ function itemDescr(string $site, string $name): string
 function clampi($v, int $lo, int $hi): int { return max($lo, min($hi, (int)round((float)$v))); }
 function num($v): int { return is_numeric($v) ? (int)$v : 0; }
 
+// Genericize distinctive Dominions/Illwinter proper nouns in a name into
+// plain fantasy terms, keeping the rest of the name intact.
+function genericizeName(string $name): string
+{
+    // Multi-word phrases first.
+    $phrases = [
+        "Lakam Ha'"      => 'Jungle',
+        'Turan Usij'     => 'Fire Cultist',
+        'Closed Council' => 'Grand Council',
+    ];
+    foreach ($phrases as $from => $to) $name = str_replace($from, $to, $name);
+
+    // Whole-word substitutions.
+    $words = [
+        'Sepulchre' => 'Tomb',        'Woodhenge' => 'Wildwood',
+        'Anansi'    => 'Spider Lord', 'Limitane'  => 'Legion',
+        'Erytheian' => 'Coastal',     'Humanbred' => 'Halfblood',
+        'Nemedian'  => 'Highland',    'Nagini'    => 'Serpent Maiden',
+        'Nin'       => 'Acolyte',     'Fianna'    => 'Clan Warrior',
+        'Aphroi'    => 'Tide',        'Olm'       => 'Cave',
+        'Gileadite' => 'Zealot',      'Teotl'     => 'God',
+        'Neter'     => 'God',
+    ];
+    foreach ($words as $from => $to) {
+        $name = preg_replace('/\b' . preg_quote($from, '/') . '\b/', $to, $name);
+    }
+    return $name;
+}
+
 // ---------- monsters ----------
 function buildMonsters(array $units, string $site, int $count): array
 {
@@ -98,7 +127,7 @@ function buildMonsters(array $units, string $site, int $count): array
         $gold = clampi($gold, 5, 500);
         $out[] = [
             'id'          => $id++,
-            'name'        => $u['name'],
+            'name'        => genericizeName($u['name']),
             'level'       => clampi($hp / 15, 1, 25),
             'hp'          => $hp,
             'attack'      => $att,
