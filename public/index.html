@@ -49,52 +49,67 @@
 
 <!-- Game screen -->
 <main id="screen-game" class="screen hidden">
-    <div class="game-grid">
-        <div class="card">
-            <h2 id="settlement-name">—</h2>
-            <p class="muted">Terrain: <span id="settlement-terrain">—</span></p>
-            <table class="res-table">
-                <tr><th>Resource</th><th>Amount</th><th>Per hour</th></tr>
-                <tr><td>Gold</td>  <td id="g-gold">0</td>  <td id="rate-gold">0</td></tr>
-                <tr><td>Wood</td>  <td id="g-wood">0</td>  <td id="rate-wood">0</td></tr>
-                <tr><td>Stone</td> <td id="g-stone">0</td> <td id="rate-stone">0</td></tr>
-            </table>
-        </div>
+    <div class="game">
+        <nav class="game-tabs">
+            <button class="game-tab active" data-panel="settlement">Settlement</button>
+            <button class="game-tab" data-panel="character">Character</button>
+            <button class="game-tab" data-panel="adventure">Adventure</button>
+            <button class="game-tab" data-panel="exploration">Exploration</button>
+        </nav>
 
-        <div class="card">
-            <h2 id="char-name">—</h2>
-            <div class="loot-bar">
-                <button id="btn-loot" class="btn">Search for loot</button>
-                <span id="loot-result" class="muted"></span>
+        <div class="game-panel active" data-panel="settlement">
+            <div class="card">
+                <h2 id="settlement-name">—</h2>
+                <p class="muted">Terrain: <span id="settlement-terrain">—</span></p>
+                <table class="res-table">
+                    <tr><th>Resource</th><th>Amount</th><th>Per hour</th></tr>
+                    <tr><td>Gold</td>  <td id="g-gold">0</td>  <td id="rate-gold">0</td></tr>
+                    <tr><td>Wood</td>  <td id="g-wood">0</td>  <td id="rate-wood">0</td></tr>
+                    <tr><td>Stone</td> <td id="g-stone">0</td> <td id="rate-stone">0</td></tr>
+                </table>
             </div>
-            <div id="char-vitals" class="vitals"></div>
-            <h3>Stats</h3>
-            <div id="char-stats" class="stat-grid"></div>
-            <h3>Sub-stats</h3>
-            <div id="char-substats" class="stat-grid"></div>
-            <h3>Skills</h3>
-            <div id="char-skills" class="skill-list"></div>
-            <h3>Equipment</h3>
-            <div id="char-equipment" class="slot-grid"></div>
-            <h3>Backpack</h3>
-            <div id="char-inventory" class="inv-list"></div>
         </div>
 
-        <div class="card">
-            <h2>Adventure</h2>
-            <p class="muted">Fight monsters for gold, loot, and skill training.</p>
-            <div id="monster-list" class="monster-list"></div>
-            <h3>Combat log</h3>
-            <div id="combat-log" class="combat-log"><p class="muted">No fights yet.</p></div>
-        </div>
-
-        <div class="card">
-            <h2>Exploration</h2>
-            <div class="loot-bar">
-                <button id="btn-explore" class="btn">Explore</button>
-                <span id="explore-result" class="muted"></span>
+        <div class="game-panel" data-panel="character">
+            <div class="card">
+                <h2 id="char-name">—</h2>
+                <div class="loot-bar">
+                    <button id="btn-loot" class="btn">Search for loot</button>
+                    <span id="loot-result" class="muted"></span>
+                </div>
+                <div id="char-vitals" class="vitals"></div>
+                <h3>Stats</h3>
+                <div id="char-stats" class="stat-grid"></div>
+                <h3>Sub-stats</h3>
+                <div id="char-substats" class="stat-grid"></div>
+                <h3>Skills</h3>
+                <div id="char-skills" class="skill-list"></div>
+                <h3>Equipment</h3>
+                <div id="char-equipment" class="slot-grid"></div>
+                <h3>Backpack</h3>
+                <div id="char-inventory" class="inv-list"></div>
             </div>
-            <div id="location-list" class="location-list"><p class="muted">Explore to discover sites and dungeons.</p></div>
+        </div>
+
+        <div class="game-panel" data-panel="adventure">
+            <div class="card">
+                <h2>Adventure</h2>
+                <p class="muted">Fight monsters for gold, loot, and skill training.</p>
+                <div id="monster-list" class="monster-list"></div>
+                <h3>Combat log</h3>
+                <div id="combat-log" class="combat-log"><p class="muted">No fights yet.</p></div>
+            </div>
+        </div>
+
+        <div class="game-panel" data-panel="exploration">
+            <div class="card">
+                <h2>Exploration</h2>
+                <div class="loot-bar">
+                    <button id="btn-explore" class="btn">Explore</button>
+                    <span id="explore-result" class="muted"></span>
+                </div>
+                <div id="location-list" class="location-list"><p class="muted">Explore to discover sites and dungeons.</p></div>
+            </div>
         </div>
     </div>
 </main>

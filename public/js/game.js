@@ -1,8 +1,16 @@
 // The in-game view: load settlements and keep resources ticking.
 
+function switchGamePanel(name) {
+    document.querySelectorAll('.game-tab').forEach(t =>
+        t.classList.toggle('active', t.dataset.panel === name));
+    document.querySelectorAll('.game-panel').forEach(p =>
+        p.classList.toggle('active', p.dataset.panel === name));
+}
+
 async function enterGame() {
     $('topbar-username').textContent = state.username;
     showScreen('game');
+    switchGamePanel('settlement');
     await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadLocations()]);
     startTicker();
 }
@@ -209,7 +217,11 @@ async function advance(playerLocationId) {
     state.locations = body.locations;
     renderLocations();
     await loadSettlements();
-    renderCombat(body.combat);
+    renderCombat(body.combat);   // detailed log (visible on the Adventure tab)
+
+    // Inline summary so the result is visible without leaving the Exploration tab.
+    const cmb = body.combat;
+    let msg = `${cmb.monster.name}: ${cmb.outcome === 'win' ? 'Victory' : 'Defeat'} — ${cmb.hero_hp_after} hp`;
     if (body.cleared) {
         const r = body.completion || {};
         const bits = [];
@@ -219,8 +231,9 @@ async function advance(playerLocationId) {
         }
         if (r.regen) bits.push(`+${r.regen} regen/min`);
         if (r.item) bits.push('reward item');
-        $('explore-result').textContent = `Cleared ${body.location_name}! ${bits.join(' · ')}`;
+        msg = `Cleared ${body.location_name}! ${bits.join(' · ')}`;
     }
+    $('explore-result').textContent = msg;
 }
 
 function rateRewardText(reward) {

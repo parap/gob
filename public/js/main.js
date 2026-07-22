@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Equip (backpack button) / unequip (click a filled slot).
     $('screen-game').addEventListener('click', e => {
+        const tab = e.target.closest('.game-tab');
+        if (tab) { switchGamePanel(tab.dataset.panel); return; }
         const eq = e.target.closest('[data-equip]');
         if (eq) { equipItem(parseInt(eq.dataset.equip)); return; }
         const un = e.target.closest('[data-unequip]');
