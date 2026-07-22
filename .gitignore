@@ -1,0 +1,29 @@
+# PhpStorm / IDE
+/.idea/
+*.iml
+
+# PHP / Composer
+/vendor/
+composer.phar
+
+# Environment & secrets — never commit these
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Local config / database
+/config/local.php
+*.sqlite
+*.sqlite3
+
+# Logs & caches
+*.log
+/logs/
+/cache/
+/tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
