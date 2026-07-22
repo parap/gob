@@ -152,8 +152,29 @@ input:focus { outline: none; border-color: var(--accent); }
 .loot-bar .btn { padding: 0.5rem 0.9rem; }
 #btn-loot:disabled { opacity: 0.5; cursor: default; }
 
-/* Flavor/description text, shared by monsters and items. */
-.entity-descr { display: block; color: var(--muted); font-size: 0.78rem; font-style: italic; margin-top: 0.2rem; line-height: 1.35; }
+/* Hover info icon + tooltip (monster & item descriptions). */
+.info { position: relative; cursor: help; color: var(--muted); font-style: normal; }
+.info:hover { color: var(--accent); }
+.info:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 0;
+    top: 1.5em;
+    width: 240px;
+    max-width: 60vw;
+    padding: 0.5rem 0.65rem;
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.78rem;
+    font-style: italic;
+    line-height: 1.4;
+    white-space: normal;
+    z-index: 30;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+}
 
 /* Backpack */
 .inv-list { display: flex; flex-direction: column; gap: 0.4rem; }

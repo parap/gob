@@ -25,9 +25,8 @@ async function loadMonsters() {
     $('monster-list').innerHTML = body.map(m => `
         <div class="monster">
             <div class="monster-info">
-                <span class="monster-name">${esc(m.name)} <em>Lv${m.level}</em></span>
+                <span class="monster-name">${esc(m.name)} <em>Lv${m.level}</em>${infoIcon(m.description)}</span>
                 <span class="monster-stats">${m.hp} hp · atk ${m.attack} · def ${m.defense} · ${m.reward_gold}g</span>
-                ${m.description ? `<span class="entity-descr">${esc(m.description)}</span>` : ''}
             </div>
             <button class="btn-mini" data-fight="${m.id}">Fight</button>
         </div>`).join('');
@@ -113,6 +112,11 @@ function renderVitals() {
         vitalBar('Courage', v.courage, v.courage_max);
 }
 
+// A hover-only info icon whose tooltip is the given description.
+function infoIcon(desc) {
+    return desc ? ` <span class="info" data-tip="${esc(desc)}">&#9432;</span>` : '';
+}
+
 // Format an item's bonuses like "+1 str, +10 hp".
 function bonusText(bonuses) {
     const keys = Object.keys(bonuses || {});
@@ -166,8 +170,7 @@ function renderCharacter() {
             const sell = `<button class="btn-mini btn-sell" data-sell="${it.char_item_id}">Sell ${it.sell_value}g</button>`;
             return `<div class="inv-item">
                 <div class="inv-main">
-                    <span class="inv-head"><span class="inv-name">${esc(it.name)}</span> <span class="inv-bonus">${esc(info)}</span></span>
-                    ${it.description ? `<span class="entity-descr">${esc(it.description)}</span>` : ''}
+                    <span class="inv-head"><span class="inv-name">${esc(it.name)}</span>${infoIcon(it.description)} <span class="inv-bonus">${esc(info)}</span></span>
                 </div>
                 <div class="inv-actions">${btn}${sell}</div>
             </div>`;
