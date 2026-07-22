@@ -231,3 +231,6 @@ input:focus { outline: none; border-color: var(--accent); }
 /* Exploration sweep progress bar */
 .explore-progress { height: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 0.5rem 0 0.75rem; }
 .explore-fill { height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
+/* Transient search-action bar (distinct blue, thinner). */
+.search-progress { height: 6px; margin: 0.25rem 0 0.75rem; }
+.search-progress .explore-fill { background: #4e77c0; }

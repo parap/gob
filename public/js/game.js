@@ -329,22 +329,28 @@ async function exploreWorld() {
     const btn = $('btn-explore');
     if (btn.disabled) return;
     btn.disabled = true;
+    btn.textContent = 'Searching…';
     $('explore-result').textContent = '';
 
-    // Animated "Searching…" indicator (no numbers) for the search duration.
     const startedAt = Date.now();
-    let dots = 0;
-    const anim = setInterval(() => { dots = (dots + 1) % 4; btn.textContent = 'Searching' + '.'.repeat(dots); }, 350);
-
     const { status, body } = await req('POST', '/world/explore');
     const secs = status === 200 ? (body.cooldown_seconds || 8) : (body.retry_after || 1);
     const wait = Math.max(400, secs * 1000 - (Date.now() - startedAt));
 
+    // Fill the search bar 0 → 100% over the remaining search time (no numbers).
+    const bar = $('search-bar');
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    void bar.offsetWidth;                       // force reflow so the reset takes
+    bar.style.transition = `width ${wait}ms linear`;
+    bar.style.width = '100%';
+
     // Reveal the result only once the search has "ended".
     setTimeout(async () => {
-        clearInterval(anim);
         btn.disabled = false;
         btn.textContent = 'Explore';
+        bar.style.transition = 'none';
+        bar.style.width = '0%';
         if (status === 429) { $('explore-result').textContent = body.error; return; }
         if (status !== 200) return;
 
