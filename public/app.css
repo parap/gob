@@ -116,6 +116,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .game-panel { display: none; }
 .game-panel.active { display: block; }
 #screen-game .card { max-width: none; }
+.vitals-card { padding: 1rem 1.25rem; margin-bottom: 1rem; }
 #screen-game h3 { margin: 1.25rem 0 0.5rem; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
 
 /* Vitals bars */

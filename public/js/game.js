@@ -5,6 +5,9 @@ function switchGamePanel(name) {
         t.classList.toggle('active', t.dataset.panel === name));
     document.querySelectorAll('.game-panel').forEach(p =>
         p.classList.toggle('active', p.dataset.panel === name));
+    // Vitals (HP especially) regenerate server-side — refetch so they're current.
+    // Guard on an already-loaded character to avoid double-loading on entry.
+    if (state.character) loadCharacter();
 }
 
 async function enterGame() {
