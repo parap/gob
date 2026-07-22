@@ -3,7 +3,7 @@
 async function enterGame() {
     $('topbar-username').textContent = state.username;
     showScreen('game');
-    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters()]);
+    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadLocations()]);
     startTicker();
 }
 
@@ -154,18 +154,94 @@ async function searchLoot() {
     }
 }
 
-// Disable the button and count down; re-enable when the cooldown ends.
-function startLootCooldown(seconds) {
-    const btn = $('btn-loot');
+// Disable a button and count down; restore its label when the cooldown ends.
+function startCooldown(btnId, label, seconds) {
+    const btn = $(btnId);
     let left = seconds;
     const tick = () => {
-        if (left <= 0) { btn.disabled = false; btn.textContent = 'Search for loot'; return; }
+        if (left <= 0) { btn.disabled = false; btn.textContent = label; return; }
         btn.disabled = true;
         btn.textContent = `Resting (${left}s)`;
         left--;
         setTimeout(tick, 1000);
     };
     tick();
+}
+const startLootCooldown = (s) => startCooldown('btn-loot', 'Search for loot', s);
+
+async function loadLocations() {
+    const { status, body } = await req('GET', '/locations');
+    if (status !== 200 || !Array.isArray(body)) return;
+    state.locations = body;
+    renderLocations();
+}
+
+async function explore() {
+    const { status, body } = await req('POST', '/explore');
+    if (status === 429) {
+        $('explore-result').textContent = body.error;
+        startCooldown('btn-explore', 'Explore', body.retry_after);
+        return;
+    }
+    if (status !== 200) return;
+    $('explore-result').textContent = body.found
+        ? `Discovered a ${body.found.type}: ${body.found.name} (Lv${body.found.level})!`
+        : body.message;
+    state.locations = body.locations;
+    renderLocations();
+    startCooldown('btn-explore', 'Explore', body.cooldown_seconds);
+}
+
+async function advance(playerLocationId) {
+    const { status, body } = await req('POST', '/locations/advance', { player_location_id: playerLocationId });
+    if (status !== 200) return;
+    state.character = body.character;
+    renderCharacter();
+    state.locations = body.locations;
+    renderLocations();
+    await loadSettlements();
+    renderCombat(body.combat);
+    if (body.cleared) {
+        const r = body.completion || {};
+        const bits = [];
+        if (r.rate) {
+            const parts = Object.entries(r.rate).filter(([, v]) => v).map(([k, v]) => `+${v} ${k}/hr`);
+            if (parts.length) bits.push(parts.join(', '));
+        }
+        if (r.item) bits.push('reward item');
+        $('explore-result').textContent = `Cleared ${body.location_name}! ${bits.join(' · ')}`;
+    }
+}
+
+function rateRewardText(reward) {
+    const parts = [];
+    if (reward.gold_rate) parts.push(`+${reward.gold_rate} gold/hr`);
+    if (reward.wood_rate) parts.push(`+${reward.wood_rate} wood/hr`);
+    if (reward.stone_rate) parts.push(`+${reward.stone_rate} stone/hr`);
+    return parts.join(', ');
+}
+
+function renderLocations() {
+    if (!state.locations.length) {
+        $('location-list').innerHTML = '<p class="muted">Explore to discover sites and dungeons.</p>';
+        return;
+    }
+    $('location-list').innerHTML = state.locations.map(l => {
+        const reward = l.type === 'site' && rateRewardText(l.reward)
+            ? `<span class="loc-reward">${rateRewardText(l.reward)} when cleared</span>` : '';
+        const body = l.state === 'cleared'
+            ? `<span class="loc-cleared">Cleared ✓</span>`
+            : `<span class="loc-next">Next: ${l.next_monster ?? '—'}</span>
+               <button class="btn-mini" data-advance="${l.id}">Delve</button>`;
+        return `<div class="location loc-${l.type} ${l.state}">
+            <div class="loc-info">
+                <span class="loc-name">${l.name} <em>${l.type} · Lv${l.level}</em></span>
+                <span class="loc-progress">${l.progress}/${l.total_stages} stages</span>
+                ${reward}
+            </div>
+            <div class="loc-action">${body}</div>
+        </div>`;
+    }).join('');
 }
 
 async function loadSettlements() {

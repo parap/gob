@@ -16,7 +16,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (un) { unequipSlot(un.dataset.unequip); return; }
         if (e.target.id === 'btn-loot') { searchLoot(); return; }
         const fg = e.target.closest('[data-fight]');
-        if (fg) { fight(parseInt(fg.dataset.fight)); }
+        if (fg) { fight(parseInt(fg.dataset.fight)); return; }
+        if (e.target.id === 'btn-explore') { explore(); return; }
+        const av = e.target.closest('[data-advance]');
+        if (av) { advance(parseInt(av.dataset.advance)); }
     });
 
     // Submit auth forms on Enter.

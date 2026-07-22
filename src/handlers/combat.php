@@ -39,14 +39,25 @@ function handleAttack(): void
     $charId = ensureCharacter((int)$player['id'], $player['username']);
 
     $monsterId = (int)(body()['monster_id'] ?? 0);
-    $db        = db();
-
-    $stmt = $db->prepare('SELECT * FROM monsters WHERE id = ?');
+    $stmt = db()->prepare('SELECT * FROM monsters WHERE id = ?');
     $stmt->execute([$monsterId]);
     $m = $stmt->fetch();
     if (!$m) {
         json(404, ['error' => 'Monster not found.']);
     }
+
+    $res              = resolveFight($player, $charId, $m);
+    $res['character'] = loadCharacter($charId);
+    json(200, $res);
+}
+
+// Simulate a fight between the hero and a monster row, persist the hero's HP,
+// grant win rewards (gold + skill training + monster loot), and return the
+// result (outcome, rounds, log, hero_hp_after, rewards, monster). Reused by
+// both the arena (handleAttack) and exploration (handleAdvance).
+function resolveFight(array $player, int $charId, array $m): array
+{
+    $db = db();
 
     // Fresh hero numbers (regen already applied inside loadCharacter).
     $c = loadCharacter($charId);
@@ -118,13 +129,12 @@ function handleAttack(): void
         }
     }
 
-    json(200, [
+    return [
         'outcome'       => $win ? 'win' : 'loss',
         'rounds'        => min($round, MAX_COMBAT_ROUNDS),
         'log'           => $log,
         'monster'       => ['id' => (int)$m['id'], 'name' => $m['name'], 'hp' => (int)$m['hp']],
         'hero_hp_after' => $finalHp,
         'rewards'       => $rewards,
-        'character'     => loadCharacter($charId),
-    ]);
+    ];
 }

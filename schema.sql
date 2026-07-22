@@ -74,8 +74,9 @@ CREATE TABLE IF NOT EXISTS characters (
     attack       INT NOT NULL DEFAULT 0,
     penetration  INT NOT NULL DEFAULT 0,
 
-    last_loot_at  DATETIME NULL,         -- cooldown marker for loot searches
-    last_regen_at DATETIME NULL,         -- marker for passive HP regeneration
+    last_loot_at    DATETIME NULL,       -- cooldown marker for loot searches
+    last_regen_at   DATETIME NULL,       -- marker for passive HP regeneration
+    last_explore_at DATETIME NULL,       -- cooldown marker for exploration
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -195,4 +196,59 @@ INSERT IGNORE INTO monsters
     (1, 'Goblin Scout',   1,  30,  4, 1, 0, 0,  20,  1, 10, 'A skittish goblin with a rusty dagger.'),
     (2, 'Gray Wolf',      2,  45,  7, 2, 1, 1,  35, 11, 15, 'Lean and quick, hunts in the hills.'),
     (3, 'Road Bandit',    3,  70, 10, 3, 2, 2,  60,  2, 15, 'A desperate outlaw preying on travelers.'),
-    (4, 'Cave Ogre',      5, 140, 16, 4, 4, 3, 120,  9, 12, 'A hulking brute that fills the tunnel.');
+    (4, 'Cave Ogre',      5, 140, 16, 4, 4, 3, 120,  9, 12, 'A hulking brute that fills the tunnel.'),
+    (5, 'Goblin Warlord', 3,  90, 12, 3, 2, 2,  80,  2, 20, 'The banner-bearer of the warren.'),
+    (6, 'Crypt Guardian', 6, 200, 20, 6, 6, 4, 200, 14, 25, 'An animated colossus of bone and iron.');
+
+-- Explorable locations. Sites grant an ongoing settlement rate bonus on clear;
+-- dungeons instead give better reward loot. reward_item_id is granted on clear.
+CREATE TABLE IF NOT EXISTS locations (
+    id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    type             ENUM('site','dungeon') NOT NULL,
+    name             VARCHAR(64)  NOT NULL,
+    description      VARCHAR(255) NULL,
+    level            SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    bonus_gold_rate  INT NOT NULL DEFAULT 0,
+    bonus_wood_rate  INT NOT NULL DEFAULT 0,
+    bonus_stone_rate INT NOT NULL DEFAULT 0,
+    reward_item_id   INT UNSIGNED NULL,
+    FOREIGN KEY (reward_item_id) REFERENCES items(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- The ordered monster encounters that make up a location.
+CREATE TABLE IF NOT EXISTS location_stages (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    location_id INT UNSIGNED NOT NULL,
+    stage_no    SMALLINT UNSIGNED NOT NULL,
+    monster_id  INT UNSIGNED NOT NULL,
+    is_boss     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    UNIQUE KEY uq_location_stage (location_id, stage_no),
+    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE,
+    FOREIGN KEY (monster_id)  REFERENCES monsters(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- A location a player has discovered, with how far they've cleared it.
+CREATE TABLE IF NOT EXISTS player_locations (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    player_id     INT UNSIGNED NOT NULL,
+    location_id   INT UNSIGNED NOT NULL,
+    progress      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    state         ENUM('active', 'cleared') NOT NULL DEFAULT 'active',
+    discovered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cleared_at    DATETIME NULL,
+    UNIQUE KEY uq_player_location (player_id, location_id),
+    FOREIGN KEY (player_id)   REFERENCES players(id)   ON DELETE CASCADE,
+    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO locations
+    (id, type, name, description, level, bonus_gold_rate, bonus_wood_rate, bonus_stone_rate, reward_item_id) VALUES
+    (1, 'site',    'Abandoned Mine',   'Goblins have moved into the old shafts.',    1,  5, 0, 15, 5),
+    (2, 'site',    'Whispering Grove',  'A wolf pack dens beneath the ancient oaks.', 2,  0, 20, 0, 7),
+    (3, 'dungeon', 'Sunken Crypt',      'A flooded tomb, and something guards it.',   4,  0, 0, 0, 9);
+
+INSERT IGNORE INTO location_stages
+    (location_id, stage_no, monster_id, is_boss) VALUES
+    (1, 1, 1, 0), (1, 2, 1, 0), (1, 3, 3, 1),               -- Mine: Goblin, Goblin, Bandit (boss)
+    (2, 1, 2, 0), (2, 2, 2, 0), (2, 3, 5, 1),               -- Grove: Wolf, Wolf, Warlord (boss)
+    (3, 1, 3, 0), (3, 2, 2, 0), (3, 3, 4, 0), (3, 4, 6, 1); -- Crypt: Bandit, Wolf, Ogre, Guardian (boss)
