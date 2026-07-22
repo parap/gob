@@ -290,7 +290,11 @@ function renderWorld() {
 
     // Sites discovered in the current province.
     const sites = (w.sites && w.sites[cur.id]) || [];
-    const actionable = sites.filter(s => s.type !== 'road');
+    const actionable = sites.filter(s => s.type !== 'road').sort((a, b) => {
+        const ac = a.state === 'cleared' ? 1 : 0;
+        const bc = b.state === 'cleared' ? 1 : 0;
+        return ac !== bc ? ac - bc : b.id - a.id;   // uncleared first, then newest
+    });
     $('site-list').innerHTML = actionable.length
         ? actionable.map(s => {
             const action = s.state === 'cleared'
