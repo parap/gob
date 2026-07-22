@@ -137,10 +137,11 @@ function renderCharacter() {
             const btn = consumable
                 ? `<button class="btn-mini" data-use="${it.char_item_id}">Use</button>`
                 : `<button class="btn-mini" data-equip="${it.char_item_id}">Equip</button>`;
+            const sell = `<button class="btn-mini btn-sell" data-sell="${it.char_item_id}">Sell ${it.sell_value}g</button>`;
             return `<div class="inv-item">
                 <span class="inv-name">${it.name}</span>
                 <span class="inv-bonus">${info}</span>
-                ${btn}
+                ${btn}${sell}
             </div>`;
         }).join('')
         : '<p class="muted">Empty.</p>';
@@ -159,6 +160,15 @@ async function unequipSlot(slot) {
 async function useItem(charItemId) {
     const { status, body } = await req('POST', '/items/use', { char_item_id: charItemId });
     if (status === 200) { state.character = body.character; renderCharacter(); }
+}
+
+async function sellItem(charItemId) {
+    const { status, body } = await req('POST', '/items/sell', { char_item_id: charItemId });
+    if (status === 200) {
+        state.character = body.character;
+        renderCharacter();
+        loadSettlements();   // gold went to the settlement
+    }
 }
 
 async function searchLoot() {

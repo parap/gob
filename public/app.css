@@ -154,7 +154,9 @@ input:focus { outline: none; border-color: var(--accent); }
 
 /* Backpack */
 .inv-list { display: flex; flex-direction: column; gap: 0.4rem; }
-.inv-item { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 0.6rem; padding: 0.4rem 0.6rem; background: var(--bg); border-radius: 6px; }
+.inv-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; background: var(--bg); border-radius: 6px; }
+.inv-item .inv-name { flex: 1; }
+.btn-sell { background: var(--line); color: var(--text); }
 .inv-bonus { color: var(--accent); font-size: 0.8rem; }
 .btn-mini { padding: 0.25rem 0.7rem; background: var(--accent); color: #17130a; border: none; border-radius: 5px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
 

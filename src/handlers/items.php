@@ -33,6 +33,7 @@ function itemDetail(array $r): array
         'equipped_slot' => $r['equipped_slot'],
         'kind'          => $r['kind'],
         'heal'          => (int)$r['heal_hp'],
+        'sell_value'    => (int)$r['sell_value'],
         'bonuses'       => $bonuses,
     ];
 }
@@ -46,7 +47,7 @@ function ownedItems(int $charId): array
                 i.bonus_str, i.bonus_dex, i.bonus_con, i.bonus_int, i.bonus_wis, i.bonus_cha,
                 i.bonus_hp, i.bonus_mana, i.bonus_courage,
                 i.bonus_defense, i.bonus_protection, i.bonus_attack, i.bonus_penetration,
-                i.bonus_perception, i.kind, i.heal_hp
+                i.bonus_perception, i.kind, i.heal_hp, i.sell_value
          FROM character_items ci
          JOIN items i ON i.id = ci.item_id
          WHERE ci.character_id = ?
@@ -167,6 +168,47 @@ function handleUseItem(): void
     json(200, [
         'healed'    => $healed,
         'name'      => $row['name'],
+        'character' => loadCharacter($charId),
+    ]);
+}
+
+function handleSellItem(): void
+{
+    $player = requirePlayer();
+    $charId = ensureCharacter((int)$player['id'], $player['username']);
+    $db     = db();
+
+    $charItemId = (int)(body()['char_item_id'] ?? 0);
+    $stmt = $db->prepare(
+        'SELECT ci.id, ci.equipped_slot, i.sell_value, i.name
+         FROM character_items ci JOIN items i ON i.id = ci.item_id
+         WHERE ci.id = ? AND ci.character_id = ?'
+    );
+    $stmt->execute([$charItemId, $charId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        json(404, ['error' => 'Item not found.']);
+    }
+    if ($row['equipped_slot'] !== null) {
+        json(400, ['error' => 'Unequip the item before selling it.']);
+    }
+
+    $gold = (int)$row['sell_value'];
+
+    // Credit the primary settlement (settle production first, then add).
+    $sel = $db->prepare('SELECT * FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
+    $sel->execute([$player['id']]);
+    if ($settlement = $sel->fetch()) {
+        tickSettlement($settlement);
+        $db->prepare('UPDATE settlements SET gold = LEAST(capacity_gold, gold + ?) WHERE id = ?')
+           ->execute([$gold, $settlement['id']]);
+    }
+
+    $db->prepare('DELETE FROM character_items WHERE id = ?')->execute([$charItemId]);
+
+    json(200, [
+        'sold'      => $row['name'],
+        'gold'      => $gold,
         'character' => loadCharacter($charId),
     ]);
 }

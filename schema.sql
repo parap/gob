@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS items (
     bonus_perception  SMALLINT NOT NULL DEFAULT 0,
     kind          VARCHAR(16)  NOT NULL DEFAULT 'gear',  -- 'gear' | 'consumable'
     heal_hp       INT NOT NULL DEFAULT 0,                -- HP restored when a consumable is used
+    sell_value    INT NOT NULL DEFAULT 0,                -- gold gained when sold
     description   VARCHAR(255) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -183,6 +184,14 @@ UPDATE items SET bonus_attack = 2 WHERE id = 15;                         -- War 
 UPDATE items SET bonus_defense = 1 WHERE id = 16;                        -- Oak Bracer
 UPDATE items SET bonus_perception = 3 WHERE id = 14;                     -- Scholar Glasses
 UPDATE items SET bonus_perception = 1 WHERE id = 8;                      -- Silver Ring
+
+-- Sell value by rarity (idempotent; covers all items incl. potions).
+UPDATE items SET sell_value = CASE rarity
+    WHEN 'common'   THEN 10
+    WHEN 'uncommon' THEN 40
+    WHEN 'rare'     THEN 120
+    WHEN 'epic'     THEN 300
+    ELSE 10 END;
 
 -- PvE enemies the hero can fight. loot_item_id + loot_chance (percent) give a
 -- chance to drop that item on a win.

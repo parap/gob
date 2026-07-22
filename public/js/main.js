@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (un) { unequipSlot(un.dataset.unequip); return; }
         const us = e.target.closest('[data-use]');
         if (us) { useItem(parseInt(us.dataset.use)); return; }
+        const sl = e.target.closest('[data-sell]');
+        if (sl) { sellItem(parseInt(sl.dataset.sell)); return; }
         if (e.target.id === 'btn-loot') { searchLoot(); return; }
         const fg = e.target.closest('[data-fight]');
         if (fg) { fight(parseInt(fg.dataset.fight)); return; }

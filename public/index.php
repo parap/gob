@@ -32,6 +32,7 @@ if (str_starts_with($path, '/api/')) {
             'POST /api/items/equip'   => handleEquip(),
             'POST /api/items/unequip' => handleUnequip(),
             'POST /api/items/use'     => handleUseItem(),
+            'POST /api/items/sell'    => handleSellItem(),
             'POST /api/loot/search'   => handleLootSearch(),
             'GET /api/monsters'       => handleMonsters(),
             'POST /api/combat/attack' => handleAttack(),
