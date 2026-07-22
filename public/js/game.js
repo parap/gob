@@ -249,6 +249,17 @@ async function loadWorld() {
     renderWorld();
 }
 
+// Qualitative exploration stage instead of a raw percentage.
+function exploreLabel(pct) {
+    if (pct >= 100) return 'Fully explored';
+    if (pct <= 0)   return 'Unexplored';
+    if (pct < 20)   return 'Barely explored';
+    if (pct < 40)   return 'Slightly explored';
+    if (pct < 60)   return 'Somewhat explored';
+    if (pct < 80)   return 'Mostly explored';
+    return 'Nearly explored';
+}
+
 function rewardText(reward) {
     const parts = [];
     if (reward.gold_rate) parts.push(`+${reward.gold_rate} gold/hr`);
@@ -270,7 +281,7 @@ function renderWorld() {
     $('province-terrain').textContent = cur.terrain;
     $('province-level').textContent = cur.level;
     $('explore-bar').style.width = cur.explored_pct + '%';
-    $('explore-pct').textContent = Math.floor(cur.explored_pct) + '%';
+    $('explore-pct').textContent = exploreLabel(cur.explored_pct);
 
     // Sites discovered in the current province.
     const sites = (w.sites && w.sites[cur.id]) || [];
@@ -299,7 +310,7 @@ function renderWorld() {
         return `<div class="location ${p.is_current ? 'current' : ''}">
             <div class="loc-info">
                 <span class="loc-name">${esc(p.name)} <em>${p.terrain} · Lv${p.level}${p.is_home ? ' · home' : ''}</em></span>
-                <span class="loc-progress">${Math.floor(p.explored_pct)}% explored${p.is_current ? '' : ' · REMOTE — TO BE TRAVELLED'}</span>
+                <span class="loc-progress">${exploreLabel(p.explored_pct)}${p.is_current ? '' : ' · REMOTE — TO BE TRAVELLED'}</span>
             </div>
             <div class="loc-action">${tag}</div>
         </div>`;
