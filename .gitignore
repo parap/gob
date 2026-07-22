@@ -14,7 +14,7 @@ composer.phar
 *.pem
 
 # Local config / database
-/config/local.php
+/config/config.php
 *.sqlite
 *.sqlite3
 

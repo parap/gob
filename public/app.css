@@ -1,0 +1,93 @@
+:root {
+    --bg: #0f1117;
+    --panel: #1a1e28;
+    --line: #2a2f3c;
+    --text: #e6e8ee;
+    --muted: #8a91a3;
+    --accent: #c9a24b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.hidden { display: none !important; }
+
+/* Top bar */
+#topbar {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+}
+#topbar .brand { font-weight: 700; letter-spacing: 0.1em; color: var(--accent); }
+#topbar-resources { display: flex; gap: 1.25rem; }
+.res b { color: var(--muted); font-weight: 600; margin-right: 0.35rem; }
+.spacer { flex: 1; }
+
+/* Screens & cards */
+.screen {
+    display: flex;
+    justify-content: center;
+    padding: 2.5rem 1rem;
+}
+.card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.75rem;
+}
+h1, h2 { margin-top: 0; }
+.muted { color: var(--muted); }
+
+/* Auth */
+.auth-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+.auth-tab {
+    flex: 1; padding: 0.6rem; cursor: pointer;
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 8px;
+}
+.auth-tab.active { color: var(--text); border-color: var(--accent); }
+.auth-form { display: none; flex-direction: column; gap: 0.75rem; }
+.auth-form.active { display: flex; }
+
+input {
+    padding: 0.65rem 0.8rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 1rem;
+}
+input:focus { outline: none; border-color: var(--accent); }
+
+.btn {
+    padding: 0.7rem;
+    background: var(--accent); color: #17130a;
+    border: none; border-radius: 8px;
+    font-weight: 600; cursor: pointer;
+}
+.btn-ghost {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 0.4rem 0.8rem; cursor: pointer;
+}
+.error { color: #e06c6c; min-height: 1.2em; margin-bottom: 0; }
+
+/* Game */
+.res-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+.res-table th, .res-table td {
+    text-align: left; padding: 0.5rem 0.4rem;
+    border-bottom: 1px solid var(--line);
+}
+.res-table th { color: var(--muted); font-weight: 600; }
+.res-table td:nth-child(2) { font-variant-numeric: tabular-nums; }
