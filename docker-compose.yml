@@ -1,0 +1,50 @@
+# Dev stack: Caddy (web) + PHP-FPM (app) + MySQL (db).
+# Start it all with:  docker compose up
+# The game is then at http://localhost:8080
+
+services:
+  caddy:
+    image: caddy:2
+    ports:
+      - "8090:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./:/var/www/html:ro
+    depends_on:
+      - php
+
+  php:
+    build: ./docker/php
+    volumes:
+      - ./:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: gob
+      DB_USER: gob
+      DB_PASS: gobdevpass
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: gob
+      MYSQL_USER: gob
+      MYSQL_PASSWORD: gobdevpass
+      MYSQL_ROOT_PASSWORD: rootpass
+    ports:
+      - "127.0.0.1:3307:3306"   # optional: inspect the DB from the host on port 3307
+    volumes:
+      - dbdata:/var/lib/mysql
+      # schema.sql runs automatically the first time the DB is created.
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  dbdata:

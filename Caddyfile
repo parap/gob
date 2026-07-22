@@ -1,0 +1,12 @@
+# Dev Caddyfile. Serves static files from /public and routes the rest to PHP.
+# In production this becomes `yourdomain.com { ... }` and Caddy adds HTTPS.
+:80 {
+	root * /var/www/html/public
+	encode gzip
+
+	# Serves existing static files; sends everything else to index.php,
+	# and proxies .php requests to the php-fpm container.
+	php_fastcgi php:9000
+
+	file_server
+}
