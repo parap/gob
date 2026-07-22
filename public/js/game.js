@@ -35,7 +35,7 @@ async function loadMonsters() {
 async function fight(monsterId) {
     const { status, body } = await req('POST', '/combat/attack', { monster_id: monsterId });
     if (status !== 200) return;
-    state.character = body.character;   // hp/skills/loot already updated server-side
+    setCharacter(body.character);   // hp/skills/loot already updated server-side
     renderCharacter();
     await loadSettlements();            // gold reward may have landed
     renderCombat(body);
@@ -66,7 +66,7 @@ async function loadCharacter() {
     const { status, body } = await req('GET', '/character/me');
     if (status === 401) { logout(); return; }
     if (status !== 200) return;
-    state.character = body;
+    setCharacter(body);
     renderCharacter();
 }
 
@@ -84,6 +84,34 @@ function vitalBar(label, value, max) {
     </div>`;
 }
 
+// Store a fresh character and stamp when its vitals were fetched, so HP can be
+// projected forward from the regen rate (same idea as live resources).
+function setCharacter(c) {
+    c.vitalsFetchedAt = Date.now();
+    state.character = c;
+}
+
+// Project current HP forward from the regen rate since the last fetch.
+function liveHp() {
+    const c = state.character;
+    if (!c) return 0;
+    const v = c.vitals;
+    const elapsedMin = (Date.now() - c.vitalsFetchedAt) / 60000;
+    const hp = v.hp + (v.hp_regen_per_min || 0) * elapsedMin;
+    return Math.min(v.hp_max, Math.max(0, Math.floor(hp)));
+}
+
+// Paint the always-visible vitals bars using the projected HP.
+function renderVitals() {
+    const c = state.character;
+    if (!c) return;
+    const v = c.vitals;
+    $('char-vitals').innerHTML =
+        vitalBar('HP', liveHp(), v.hp_max) +
+        vitalBar('Mana', v.mana, v.mana_max) +
+        vitalBar('Courage', v.courage, v.courage_max);
+}
+
 // Format an item's bonuses like "+1 str, +10 hp".
 function bonusText(bonuses) {
     const keys = Object.keys(bonuses || {});
@@ -96,11 +124,7 @@ function renderCharacter() {
     if (!c) return;
     $('char-name').textContent = c.name;
 
-    const v = c.vitals;
-    $('char-vitals').innerHTML =
-        vitalBar('HP', v.hp, v.hp_max) +
-        vitalBar('Mana', v.mana, v.mana_max) +
-        vitalBar('Courage', v.courage, v.courage_max);
+    renderVitals();
 
     // Show effective value, with the base in parentheses when gear changed it.
     const statRow = (label, base, eff) => {
@@ -149,23 +173,23 @@ function renderCharacter() {
 
 async function equipItem(charItemId) {
     const { status, body } = await req('POST', '/items/equip', { char_item_id: charItemId });
-    if (status === 200) { state.character = body; renderCharacter(); }
+    if (status === 200) { setCharacter(body); renderCharacter(); }
 }
 
 async function unequipSlot(slot) {
     const { status, body } = await req('POST', '/items/unequip', { slot });
-    if (status === 200) { state.character = body; renderCharacter(); }
+    if (status === 200) { setCharacter(body); renderCharacter(); }
 }
 
 async function useItem(charItemId) {
     const { status, body } = await req('POST', '/items/use', { char_item_id: charItemId });
-    if (status === 200) { state.character = body.character; renderCharacter(); }
+    if (status === 200) { setCharacter(body.character); renderCharacter(); }
 }
 
 async function sellItem(charItemId) {
     const { status, body } = await req('POST', '/items/sell', { char_item_id: charItemId });
     if (status === 200) {
-        state.character = body.character;
+        setCharacter(body.character);
         renderCharacter();
         loadSettlements();   // gold went to the settlement
     }
@@ -225,7 +249,7 @@ async function explore() {
 async function advance(playerLocationId) {
     const { status, body } = await req('POST', '/locations/advance', { player_location_id: playerLocationId });
     if (status !== 200) return;
-    state.character = body.character;
+    setCharacter(body.character);
     renderCharacter();
     state.locations = body.locations;
     renderLocations();
@@ -318,5 +342,5 @@ function updateResources() {
 
 function startTicker() {
     if (state.ticker) clearInterval(state.ticker);
-    state.ticker = setInterval(updateResources, 1000);
+    state.ticker = setInterval(() => { updateResources(); renderVitals(); }, 1000);
 }

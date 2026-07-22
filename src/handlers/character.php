@@ -153,12 +153,13 @@ function loadCharacter(int $charId): array
         $subEff[$key]  = $subBase[$key];
     }
     $vitals = [
-        'hp'          => (int)$c['hp'],
-        'hp_max'      => (int)$c['hp_max'],
-        'mana'        => (int)$c['mana'],
-        'mana_max'    => (int)$c['mana_max'],
-        'courage'     => (int)$c['courage'],
-        'courage_max' => (int)$c['courage_max'],
+        'hp'               => (int)$c['hp'],
+        'hp_max'           => (int)$c['hp_max'],
+        'hp_regen_per_min' => HP_REGEN_PER_MIN + (int)$c['regen_bonus'],
+        'mana'             => (int)$c['mana'],
+        'mana_max'         => (int)$c['mana_max'],
+        'courage'          => (int)$c['courage'],
+        'courage_max'      => (int)$c['courage_max'],
     ];
     $perceptionBonus = 0;
     foreach ($equipment as $it) {
