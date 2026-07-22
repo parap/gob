@@ -74,7 +74,8 @@ CREATE TABLE IF NOT EXISTS characters (
     attack       INT NOT NULL DEFAULT 0,
     penetration  INT NOT NULL DEFAULT 0,
 
-    last_loot_at DATETIME NULL,          -- cooldown marker for loot searches
+    last_loot_at  DATETIME NULL,         -- cooldown marker for loot searches
+    last_regen_at DATETIME NULL,         -- marker for passive HP regeneration
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -170,3 +171,28 @@ UPDATE items SET bonus_defense = 1 WHERE id = 13;                        -- Trav
 UPDATE items SET bonus_protection = 1 WHERE id = 14;                     -- Scholar Glasses
 UPDATE items SET bonus_attack = 2 WHERE id = 15;                         -- War Banner
 UPDATE items SET bonus_defense = 1 WHERE id = 16;                        -- Oak Bracer
+
+-- PvE enemies the hero can fight. loot_item_id + loot_chance (percent) give a
+-- chance to drop that item on a win.
+CREATE TABLE IF NOT EXISTS monsters (
+    id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name         VARCHAR(64) NOT NULL,
+    level        SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    hp           INT NOT NULL,
+    attack       INT NOT NULL DEFAULT 0,
+    defense      INT NOT NULL DEFAULT 0,
+    protection   INT NOT NULL DEFAULT 0,
+    penetration  INT NOT NULL DEFAULT 0,
+    reward_gold  INT NOT NULL DEFAULT 0,
+    loot_item_id INT UNSIGNED NULL,
+    loot_chance  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    description  VARCHAR(255) NULL,
+    FOREIGN KEY (loot_item_id) REFERENCES items(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO monsters
+    (id, name, level, hp, attack, defense, protection, penetration, reward_gold, loot_item_id, loot_chance, description) VALUES
+    (1, 'Goblin Scout',   1,  30,  4, 1, 0, 0,  20,  1, 10, 'A skittish goblin with a rusty dagger.'),
+    (2, 'Gray Wolf',      2,  45,  7, 2, 1, 1,  35, 11, 15, 'Lean and quick, hunts in the hills.'),
+    (3, 'Road Bandit',    3,  70, 10, 3, 2, 2,  60,  2, 15, 'A desperate outlaw preying on travelers.'),
+    (4, 'Cave Ogre',      5, 140, 16, 4, 4, 3, 120,  9, 12, 'A hulking brute that fills the tunnel.');

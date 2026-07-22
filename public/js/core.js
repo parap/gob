@@ -7,6 +7,7 @@ const state = {
     settlements: [],
     current: null,   // the currently viewed settlement
     character: null,
+    monsters: [],
     ticker: null,    // setInterval handle for the resource counter
 };
 

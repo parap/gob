@@ -9,6 +9,9 @@ const CHARACTER_SKILLS = ['attack', 'unarmed', 'sword', 'axe', 'bow', 'flail'];
 // Combat sub-stats: separate group from the six primary stats.
 const SUBSTAT_KEYS = ['defense', 'protection', 'attack', 'penetration'];
 
+// Passive HP regeneration rate.
+const HP_REGEN_PER_MIN = 60;
+
 // Equipment slots the paperdoll exposes. Two rings and two bracelets get
 // numbered slots; the rest are unique.
 const EQUIPMENT_SLOTS = [
@@ -63,10 +66,51 @@ function ensureCharacter(int $playerId, string $name): int
     return $charId;
 }
 
-function handleMyCharacter(): void
+// Total bonus_hp from the character's equipped items (raises effective HP max).
+function equippedHpBonus(int $charId): int
 {
-    $player = requirePlayer();
-    $charId = ensureCharacter((int)$player['id'], $player['username']);
+    $stmt = db()->prepare(
+        'SELECT COALESCE(SUM(i.bonus_hp), 0)
+         FROM character_items ci JOIN items i ON i.id = ci.item_id
+         WHERE ci.character_id = ? AND ci.equipped_slot IS NOT NULL'
+    );
+    $stmt->execute([$charId]);
+    return (int)$stmt->fetchColumn();
+}
+
+// Apply HP regenerated since last_regen_at, then stamp the marker.
+function tickCharacterRegen(int $charId): void
+{
+    $db   = db();
+    $stmt = $db->prepare('SELECT hp, hp_max, last_regen_at FROM characters WHERE id = ?');
+    $stmt->execute([$charId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return;
+    }
+
+    if ($row['last_regen_at'] === null) {
+        $db->prepare('UPDATE characters SET last_regen_at = NOW() WHERE id = ?')->execute([$charId]);
+        return;
+    }
+
+    $elapsed = time() - strtotime($row['last_regen_at']);
+    $regen   = (int)floor($elapsed * HP_REGEN_PER_MIN / 60);
+    if ($regen <= 0) {
+        return;
+    }
+
+    $effMax = (int)$row['hp_max'] + equippedHpBonus($charId);
+    $newHp  = min($effMax, (int)$row['hp'] + $regen);
+    $db->prepare('UPDATE characters SET hp = ?, last_regen_at = NOW() WHERE id = ?')
+       ->execute([$newHp, $charId]);
+}
+
+// Build the full character view (vitals, base + effective stats/sub-stats,
+// skills, equipment paperdoll, and backpack). Applies HP regen first.
+function loadCharacter(int $charId): array
+{
+    tickCharacterRegen($charId);
 
     $db = db();
 
@@ -130,7 +174,7 @@ function handleMyCharacter(): void
         }
     }
 
-    json(200, [
+    return [
         'id'                 => (int)$c['id'],
         'name'               => $c['name'],
         'vitals'             => $vitals,
@@ -141,5 +185,12 @@ function handleMyCharacter(): void
         'skills'             => $skills,
         'equipment'          => $equipment,
         'inventory'          => $inventory,
-    ]);
+    ];
+}
+
+function handleMyCharacter(): void
+{
+    $player = requirePlayer();
+    $charId = ensureCharacter((int)$player['id'], $player['username']);
+    json(200, loadCharacter($charId));
 }

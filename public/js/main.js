@@ -14,7 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (eq) { equipItem(parseInt(eq.dataset.equip)); return; }
         const un = e.target.closest('[data-unequip]');
         if (un) { unequipSlot(un.dataset.unequip); return; }
-        if (e.target.id === 'btn-loot') { searchLoot(); }
+        if (e.target.id === 'btn-loot') { searchLoot(); return; }
+        const fg = e.target.closest('[data-fight]');
+        if (fg) { fight(parseInt(fg.dataset.fight)); }
     });
 
     // Submit auth forms on Enter.

@@ -3,8 +3,52 @@
 async function enterGame() {
     $('topbar-username').textContent = state.username;
     showScreen('game');
-    await Promise.all([loadSettlements(), loadCharacter()]);
+    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters()]);
     startTicker();
+}
+
+async function loadMonsters() {
+    const { status, body } = await req('GET', '/monsters');
+    if (status !== 200 || !Array.isArray(body)) return;
+    state.monsters = body;
+    $('monster-list').innerHTML = body.map(m => `
+        <div class="monster">
+            <div class="monster-info">
+                <span class="monster-name">${m.name} <em>Lv${m.level}</em></span>
+                <span class="monster-stats">${m.hp} hp · atk ${m.attack} · def ${m.defense} · ${m.reward_gold}g</span>
+            </div>
+            <button class="btn-mini" data-fight="${m.id}">Fight</button>
+        </div>`).join('');
+}
+
+async function fight(monsterId) {
+    const { status, body } = await req('POST', '/combat/attack', { monster_id: monsterId });
+    if (status !== 200) return;
+    state.character = body.character;   // hp/skills/loot already updated server-side
+    renderCharacter();
+    await loadSettlements();            // gold reward may have landed
+    renderCombat(body);
+}
+
+function renderCombat(r) {
+    const rw = r.rewards;
+    const rewardBits = [];
+    if (rw.gold) rewardBits.push(`+${rw.gold} gold`);
+    if (rw.skills && rw.skills.length) rewardBits.push(`trained ${rw.skills.join(' & ')}`);
+    if (rw.items && rw.items.length) rewardBits.push(`found loot!`);
+
+    const head = `<div class="combat-head ${r.outcome}">
+        ${r.outcome === 'win' ? 'Victory' : 'Defeat'} vs ${r.monster.name}
+        — ${r.rounds} rounds${rewardBits.length ? ' · ' + rewardBits.join(', ') : ''}
+    </div>`;
+
+    const lines = r.log.map(e => {
+        const who = e.actor === 'hero' ? 'You' : r.monster.name;
+        const tgt = e.actor === 'hero' ? r.monster.name : 'you';
+        return `<div class="combat-line ${e.actor}">R${e.round}: ${who} hit ${tgt} for ${e.damage} (${tgt} ${e.target_hp} hp)</div>`;
+    }).join('');
+
+    $('combat-log').innerHTML = head + lines;
 }
 
 async function loadCharacter() {
