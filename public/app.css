@@ -234,3 +234,6 @@ input:focus { outline: none; border-color: var(--accent); }
 /* Transient search-action bar (distinct blue, thinner). */
 .search-progress { height: 6px; margin: 0.25rem 0 0.75rem; }
 .search-progress .explore-fill { background: #4e77c0; }
+#explore-result { display: block; }
+.find-line { font-size: 0.82rem; color: var(--text); }
+.find-line:first-child { margin-top: 0.25rem; }

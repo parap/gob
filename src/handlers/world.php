@@ -215,7 +215,7 @@ function worldSitePayload(array $s): array
     ];
 }
 
-const EXPLORE_COOLDOWN = 8;   // seconds between explores
+const EXPLORE_COOLDOWN = 1;   // seconds; anti-spam floor (client search animation paces it)
 const RAID_CHANCE      = 20;  // percent chance of a raid per explore
 
 // Dexterity decides how much ground a single explore covers (2–5%).
@@ -385,11 +385,13 @@ function handleProvinceExplore(): void
             $nm = $db->prepare('SELECT name, terrain FROM provinces WHERE id = ?');
             $nm->execute([$nid]);
             $newProvince = $nm->fetch();
-            $found[] = ['type' => 'road', 'name' => $s['name']];
+            $found[] = ['type' => 'road', 'name' => $s['name'], 'at' => (int)round((float)$s['position'])];
         } else {
             $db->prepare('UPDATE province_sites SET state = "found" WHERE id = ?')->execute([$s['id']]);
             $s['state'] = 'found';
-            $found[] = worldSitePayload($s);
+            $sp = worldSitePayload($s);
+            $sp['at'] = (int)round((float)$s['position']);   // where on the 0-100 sweep it sits
+            $found[] = $sp;
         }
     }
 

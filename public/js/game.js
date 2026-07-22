@@ -325,49 +325,64 @@ function renderWorld() {
     }).join('');
 }
 
+const SEARCH_MS = 3500;   // full-sweep search animation
+
 async function exploreWorld() {
     const btn = $('btn-explore');
     if (btn.disabled) return;
     btn.disabled = true;
     btn.textContent = 'Searching…';
-    $('explore-result').textContent = '';
+    const res = $('explore-result');
+    res.innerHTML = '';
 
-    const startedAt = Date.now();
-    const { status, body } = await req('POST', '/world/explore');
-    const secs = status === 200 ? (body.cooldown_seconds || 8) : (body.retry_after || 1);
-    const wait = Math.max(400, secs * 1000 - (Date.now() - startedAt));
-
-    // Fill the search bar 0 → 100% over the remaining search time (no numbers).
     const bar = $('search-bar');
     bar.style.transition = 'none';
     bar.style.width = '0%';
-    void bar.offsetWidth;                       // force reflow so the reset takes
-    bar.style.transition = `width ${wait}ms linear`;
+    void bar.offsetWidth;                       // reflow so the reset takes
+
+    const { status, body } = await req('POST', '/world/explore');
+    if (status !== 200) {
+        btn.disabled = false;
+        btn.textContent = 'Explore';
+        if (status === 429) res.textContent = body.error;
+        return;
+    }
+
+    // Sweep the whole area; each finding pops when the bar reaches its position.
+    bar.style.transition = `width ${SEARCH_MS}ms linear`;
     bar.style.width = '100%';
 
-    // Reveal the result only once the search has "ended".
+    (body.found || []).forEach(f => {
+        const at = Math.min(100, Math.max(0, f.at || 0));
+        setTimeout(() => {
+            const label = f.type === 'road' ? `🛣 ${esc(f.name)}` : `Found ${esc(f.name)} — ${f.type}`;
+            res.insertAdjacentHTML('beforeend', `<div class="find-line">${label}</div>`);
+        }, (at / 100) * SEARCH_MS);
+    });
+
+    // At 100% the search ends: reconcile authoritative state and wrap up.
     setTimeout(async () => {
         btn.disabled = false;
         btn.textContent = 'Explore';
         bar.style.transition = 'none';
         bar.style.width = '0%';
-        if (status === 429) { $('explore-result').textContent = body.error; return; }
-        if (status !== 200) return;
 
         setCharacter(body.character);
         renderCharacter();
         await Promise.all([loadWorld(), loadSettlements()]);
-        if (body.raid) renderCombat(body.raid.combat);
 
-        const bits = [];
-        (body.found || []).forEach(f => bits.push(`${f.type === 'road' ? '🛣 ' : ''}${f.name}`));
-        if (body.new_province) bits.push(`→ new province: ${body.new_province.name} (${body.new_province.terrain})`);
+        if (body.new_province) {
+            res.insertAdjacentHTML('beforeend', `<div class="find-line">→ new province: ${esc(body.new_province.name)} (${body.new_province.terrain})</div>`);
+        }
         if (body.raid) {
             const r = body.raid;
-            bits.push(`⚔ raid by ${r.monster}: ${r.combat.outcome}${r.lost_site ? ` (lost ${r.lost_site}!)` : ''}`);
+            renderCombat(r.combat);
+            res.insertAdjacentHTML('beforeend', `<div class="find-line">⚔ raid by ${esc(r.monster)}: ${r.combat.outcome}${r.lost_site ? ` (lost ${esc(r.lost_site)}!)` : ''}</div>`);
         }
-        $('explore-result').textContent = bits.length ? bits.join(' · ') : 'Found nothing this time.';
-    }, wait);
+        if (!(body.found || []).length && !body.new_province && !body.raid) {
+            res.textContent = 'Found nothing this time.';
+        }
+    }, SEARCH_MS);
 }
 
 async function travelTo(provinceId) {
