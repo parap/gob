@@ -145,7 +145,9 @@ function applyLocationCompletion(array $player, int $charId, array $loc): array
 
     if ($loc['reward_item_id'] !== null) {
         grantItem($charId, (int)$loc['reward_item_id']);
-        $summary['item'] = (int)$loc['reward_item_id'];
+        $nm = $db->prepare('SELECT name FROM items WHERE id = ?');
+        $nm->execute([(int)$loc['reward_item_id']]);
+        $summary['item'] = $nm->fetchColumn();
     }
 
     return $summary;

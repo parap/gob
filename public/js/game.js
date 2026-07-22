@@ -46,7 +46,7 @@ function renderCombat(r) {
     const rewardBits = [];
     if (rw.gold) rewardBits.push(`+${rw.gold} gold`);
     if (rw.skills && rw.skills.length) rewardBits.push(`trained ${rw.skills.join(' & ')}`);
-    if (rw.items && rw.items.length) rewardBits.push(`found loot!`);
+    if (rw.items && rw.items.length) rewardBits.push(`found ${rw.items.join(', ')}`);
 
     const head = `<div class="combat-head ${r.outcome}">
         ${r.outcome === 'win' ? 'Victory' : 'Defeat'} vs ${r.monster.name}
@@ -267,7 +267,7 @@ async function advance(playerLocationId) {
             if (parts.length) bits.push(parts.join(', '));
         }
         if (r.regen) bits.push(`+${r.regen} regen/min`);
-        if (r.item) bits.push('reward item');
+        if (r.item) bits.push(`found ${r.item}`);
         msg = `Cleared ${body.location_name}! ${bits.join(' · ')}`;
     }
     $('explore-result').textContent = msg;

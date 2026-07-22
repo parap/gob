@@ -125,7 +125,9 @@ function resolveFight(array $player, int $charId, array $m): array
         if ($m['loot_item_id'] !== null && (int)$m['loot_chance'] > 0
             && random_int(1, 100) <= (int)$m['loot_chance']) {
             grantItem($charId, (int)$m['loot_item_id']);
-            $rewards['items'][] = (int)$m['loot_item_id'];
+            $nm = $db->prepare('SELECT name FROM items WHERE id = ?');
+            $nm->execute([(int)$m['loot_item_id']]);
+            $rewards['items'][] = $nm->fetchColumn();
         }
     }
 
