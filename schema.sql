@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS characters (
     last_loot_at    DATETIME NULL,       -- cooldown marker for loot searches
     last_regen_at   DATETIME NULL,       -- marker for passive HP regeneration
     last_explore_at DATETIME NULL,       -- cooldown marker for exploration
+    current_province_id INT UNSIGNED NULL, -- province the hero is currently in
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -313,3 +314,62 @@ UPDATE locations SET min_perception = 2 WHERE id = 1;   -- Abandoned Mine
 UPDATE locations SET min_perception = 4 WHERE id = 2;   -- Whispering Grove
 UPDATE locations SET min_perception = 8 WHERE id = 3;   -- Sunken Crypt
 UPDATE locations SET min_perception = 4 WHERE id = 4;   -- Sacred Spring
+
+-- ============================================================================
+-- Province world (replaces the flat location-based exploration).
+-- Everything below is generated per-player; nothing is hand-seeded.
+-- ============================================================================
+
+-- A province is a terrain tile the player explores. explored_pct is how much
+-- of it dexterity has physically swept (0-100); sites are revealed as the
+-- sweep passes them AND a perception check succeeds.
+CREATE TABLE IF NOT EXISTS provinces (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    player_id     INT UNSIGNED NOT NULL,
+    name          VARCHAR(64) NOT NULL,
+    terrain       ENUM('plains','forest','mountains','swamp','city','caves') NOT NULL,
+    level         SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    is_home       TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    explored_pct  DECIMAL(5,2) NOT NULL DEFAULT 0,
+    discovered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Roads between provinces (undirected; stored with a<b).
+CREATE TABLE IF NOT EXISTS province_links (
+    id        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    player_id INT UNSIGNED NOT NULL,
+    a         INT UNSIGNED NOT NULL,
+    b         INT UNSIGNED NOT NULL,
+    UNIQUE KEY uq_link (a, b),
+    FOREIGN KEY (a) REFERENCES provinces(id) ON DELETE CASCADE,
+    FOREIGN KEY (b) REFERENCES provinces(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Things scattered through a province: sites (fight + reward), dungeons
+-- (multi-stage + boss + better loot), and roads (reveal a neighbour on clear).
+-- position = where along the 0-100 sweep it sits; concealment = perception
+-- needed to notice it; stages_json = ordered monster ids to defeat.
+CREATE TABLE IF NOT EXISTS province_sites (
+    id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    province_id      INT UNSIGNED NOT NULL,
+    player_id        INT UNSIGNED NOT NULL,
+    type             ENUM('minor','boon','dungeon','road') NOT NULL,
+    name             VARCHAR(64) NOT NULL,
+    position         DECIMAL(5,2) NOT NULL,
+    concealment      SMALLINT UNSIGNED NOT NULL,
+    state            ENUM('hidden','found','cleared') NOT NULL DEFAULT 'hidden',
+    progress         SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    reward_gold      INT NOT NULL DEFAULT 0,
+    bonus_gold_rate  INT NOT NULL DEFAULT 0,
+    bonus_wood_rate  INT NOT NULL DEFAULT 0,
+    bonus_stone_rate INT NOT NULL DEFAULT 0,
+    bonus_regen      INT NOT NULL DEFAULT 0,
+    reward_item_id   INT UNSIGNED NULL,
+    road_terrain     VARCHAR(12) NULL,
+    stages_json      JSON NULL,
+    description      TEXT NULL,
+    KEY idx_prov (province_id, state),
+    FOREIGN KEY (province_id) REFERENCES provinces(id) ON DELETE CASCADE,
+    FOREIGN KEY (player_id)   REFERENCES players(id)   ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
