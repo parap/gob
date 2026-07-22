@@ -30,6 +30,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tv) { travelTo(parseInt(tv.dataset.travel)); }
     });
 
+    // React to manual URL/hash changes (and back/forward) while in-game.
+    window.addEventListener('hashchange', () => {
+        if (!$('screen-game').classList.contains('hidden')) {
+            switchGamePanel(location.hash.slice(1));
+        }
+    });
+
     // Submit auth forms on Enter.
     document.querySelectorAll('.auth-form input').forEach(input =>
         input.addEventListener('keydown', e => {

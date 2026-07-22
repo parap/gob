@@ -1,10 +1,15 @@
 // The in-game view: load settlements and keep resources ticking.
 
+const GAME_PANELS = ['settlement', 'character', 'adventure', 'exploration'];
+
 function switchGamePanel(name) {
+    if (!GAME_PANELS.includes(name)) name = 'settlement';
     document.querySelectorAll('.game-tab').forEach(t =>
         t.classList.toggle('active', t.dataset.panel === name));
     document.querySelectorAll('.game-panel').forEach(p =>
         p.classList.toggle('active', p.dataset.panel === name));
+    // Reflect the tab in the URL so a reload restores it (no navigation/event).
+    if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
     // Vitals (HP especially) regenerate server-side — refetch so they're current.
     // Guard on an already-loaded character to avoid double-loading on entry.
     if (state.character) loadCharacter();
@@ -13,7 +18,7 @@ function switchGamePanel(name) {
 async function enterGame() {
     $('topbar-username').textContent = state.username;
     showScreen('game');
-    switchGamePanel('settlement');
+    switchGamePanel(location.hash.slice(1) || 'settlement');
     await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadWorld()]);
     startTicker();
 }
