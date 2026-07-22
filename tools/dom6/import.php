@@ -130,6 +130,50 @@ function monsterName(string $orig): string
     return $overrides[$orig] ?? genericize($orig);
 }
 
+// Derive [race, alignment, tags[]] from Dominions boolean flag columns.
+function classifyMonster(array $u): array
+{
+    $flag = fn(string $k) => trim($u[$k] ?? '') === '1';
+    $size = num($u['size'] ?? '');
+
+    $undead = $flag('undead');
+    $demon  = $flag('demon');
+    $inan   = $flag('inanimate') || $flag('stonebeing');
+    $magic  = $flag('magicbeing');
+    $animal = $flag('animal');
+    $holy   = $flag('holy');
+
+    if ($undead)          $race = 'undead';
+    elseif ($demon)       $race = 'demon';
+    elseif ($inan)        $race = 'construct';
+    elseif ($animal)      $race = 'animal';
+    elseif ($magic)       $race = 'magical';
+    elseif ($size >= 5)   $race = 'giant';
+    else                  $race = 'humanoid';
+
+    if ($undead || $demon) $align = 'evil';
+    elseif ($holy)         $align = 'good';
+    else                   $align = 'neutral';
+
+    $tags = [];
+    if ($undead) $tags[] = 'undead';
+    if ($demon)  $tags[] = 'demon';
+    if ($inan)   $tags[] = 'inanimate';
+    if ($magic)  $tags[] = 'magic';
+    if ($animal) { $tags[] = 'animal'; $tags[] = 'beast'; }
+    if ($holy)   $tags[] = 'holy';
+    if ($flag('coldblood')) $tags[] = 'cold-blooded';
+    if ($flag('female'))    $tags[] = 'female';
+    if ($flag('flying'))    $tags[] = 'flying';
+    if ($flag('aquatic') || $flag('amphibian')) $tags[] = 'aquatic';
+    if ($flag('mounted'))   $tags[] = 'mounted';
+    if ($size >= 5)         $tags[] = 'giant';
+    if (!$undead && !$demon && !$inan && !$magic && !$animal) $tags[] = 'humanoid';
+    $tags[] = $align;
+
+    return [$race, $align, array_values(array_unique($tags))];
+}
+
 // ---------- monsters ----------
 function buildMonsters(array $units, string $site, int $count): array
 {
@@ -168,6 +212,7 @@ function buildMonsters(array $units, string $site, int $count): array
         $bc   = num($u['basecost']);
         $gold = ($bc >= 1 && $bc < 1000) ? $bc * 2 : (int)round($hp / 3);
         $gold = clampi($gold, 5, 500);
+        [$race, $align, $tags] = classifyMonster($u);
         $out[] = [
             'id'          => $id++,
             'name'        => monsterName($u['name']),
@@ -180,7 +225,10 @@ function buildMonsters(array $units, string $site, int $count): array
             'reward_gold' => $gold,
             'loot_item_id'=> null,
             'loot_chance' => 0,
+            'race'        => $race,
+            'alignment'   => $align,
             'description' => genericize(unitDescr($site, $u['id'])),
+            'tags'        => $tags,   // stripped before upsert; inserted into monster_tags
         ];
     }
     return $out;
@@ -359,9 +407,21 @@ $monsters = buildMonsters($units, $SITE, $MONSTER_COUNT);
 fwrite(STDERR, "Building + fetching item descriptions...\n");
 $gear = buildItems($items, $weapons, $armors, $SITE, $ITEMS_PER_SLOT);
 
+// Pull tags out of the monster rows (they go into their own table).
+$tagRows = [];
+foreach ($monsters as &$mon) {
+    foreach ($mon['tags'] as $t) $tagRows[] = ['monster_id' => $mon['id'], 'tag' => $t];
+    unset($mon['tags']);
+}
+unset($mon);
+
 $db->beginTransaction();
 $m = upsert($db, 'monsters', $monsters);
 $i = upsert($db, 'items', $gear);
+// Refresh imported monsters' tags.
+$db->exec('DELETE FROM monster_tags WHERE monster_id >= 1000');
+$tagStmt = $db->prepare('INSERT IGNORE INTO monster_tags (monster_id, tag) VALUES (?, ?)');
+foreach ($tagRows as $t) $tagStmt->execute([$t['monster_id'], $t['tag']]);
 $db->commit();
 
-fwrite(STDERR, "Imported $m monsters and $i items.\n");
+fwrite(STDERR, "Imported $m monsters, $i items, " . count($tagRows) . " tags.\n");

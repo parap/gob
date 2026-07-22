@@ -7,8 +7,16 @@ const MAX_COMBAT_ROUNDS = 60;
 function handleMonsters(): void
 {
     requirePlayer();
-    $rows = db()->query('SELECT * FROM monsters ORDER BY level, id')->fetchAll();
-    $out  = array_map(fn(array $m) => [
+    $db   = db();
+    $rows = $db->query('SELECT * FROM monsters ORDER BY level, id')->fetchAll();
+
+    // Tags grouped by monster.
+    $tags = [];
+    foreach ($db->query('SELECT monster_id, tag FROM monster_tags ORDER BY tag')->fetchAll() as $t) {
+        $tags[(int)$t['monster_id']][] = $t['tag'];
+    }
+
+    $out = array_map(fn(array $m) => [
         'id'          => (int)$m['id'],
         'name'        => $m['name'],
         'level'       => (int)$m['level'],
@@ -18,6 +26,9 @@ function handleMonsters(): void
         'protection'  => (int)$m['protection'],
         'penetration' => (int)$m['penetration'],
         'reward_gold' => (int)$m['reward_gold'],
+        'race'        => $m['race'] ?? 'unknown',
+        'alignment'   => $m['alignment'] ?? 'neutral',
+        'tags'        => $tags[(int)$m['id']] ?? [],
         'description' => $m['description'] ?? '',
     ], $rows);
     json(200, $out);

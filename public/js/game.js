@@ -18,6 +18,17 @@ async function enterGame() {
     startTicker();
 }
 
+// Race + alignment + remaining tags as small badges.
+function monsterBadges(m) {
+    const badges = [];
+    if (m.race) badges.push(`<span class="badge badge-race">${esc(m.race)}</span>`);
+    if (m.alignment) badges.push(`<span class="badge badge-${esc(m.alignment)}">${esc(m.alignment)}</span>`);
+    (m.tags || [])
+        .filter(t => t !== m.race && t !== m.alignment)
+        .forEach(t => badges.push(`<span class="badge">${esc(t)}</span>`));
+    return badges.length ? `<span class="badges">${badges.join('')}</span>` : '';
+}
+
 async function loadMonsters() {
     const { status, body } = await req('GET', '/monsters');
     if (status !== 200 || !Array.isArray(body)) return;
@@ -27,6 +38,7 @@ async function loadMonsters() {
             <div class="monster-info">
                 <span class="monster-name">${esc(m.name)} <em>Lv${m.level}</em>${infoIcon(m.description)}</span>
                 <span class="monster-stats">${m.hp} hp · atk ${m.attack} · def ${m.defense} · ${m.reward_gold}g</span>
+                ${monsterBadges(m)}
             </div>
             <button class="btn-mini" data-fight="${m.id}">Fight</button>
         </div>`).join('');

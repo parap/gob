@@ -194,6 +194,18 @@ input:focus { outline: none; border-color: var(--accent); }
 .monster [data-fight] { flex-shrink: 0; }
 .monster-name em { color: var(--muted); font-style: normal; font-size: 0.8rem; }
 .monster-stats { color: var(--muted); font-size: 0.78rem; }
+/* Monster classification badges */
+.badges { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.3rem; }
+.badge {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 0.1rem 0.4rem; border-radius: 4px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--muted);
+}
+.badge-race { border-color: var(--accent); color: var(--accent); }
+.badge-evil { background: rgba(200,90,80,0.18); border-color: transparent; color: #e0857c; }
+.badge-good { background: rgba(120,180,90,0.18); border-color: transparent; color: #a7d488; }
+.badge-neutral { background: rgba(140,145,160,0.16); border-color: transparent; color: var(--muted); }
+
 .combat-log { margin-top: 0.5rem; max-height: 260px; overflow-y: auto; font-size: 0.82rem; }
 .combat-head { padding: 0.4rem 0.6rem; border-radius: 6px; margin-bottom: 0.4rem; font-weight: 600; }
 .combat-head.win { background: rgba(120,180,90,0.18); color: #a7d488; }

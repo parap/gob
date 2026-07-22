@@ -207,8 +207,18 @@ CREATE TABLE IF NOT EXISTS monsters (
     reward_gold  INT NOT NULL DEFAULT 0,
     loot_item_id INT UNSIGNED NULL,
     loot_chance  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    race         VARCHAR(24) NOT NULL DEFAULT 'unknown',
+    alignment    ENUM('good','neutral','evil') NOT NULL DEFAULT 'neutral',
     description  TEXT NULL,
     FOREIGN KEY (loot_item_id) REFERENCES items(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Free-form classification tags per monster (humanoid, evil, magic, ...).
+CREATE TABLE IF NOT EXISTS monster_tags (
+    monster_id INT UNSIGNED NOT NULL,
+    tag        VARCHAR(24)  NOT NULL,
+    PRIMARY KEY (monster_id, tag),
+    FOREIGN KEY (monster_id) REFERENCES monsters(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT IGNORE INTO monsters
@@ -219,6 +229,22 @@ INSERT IGNORE INTO monsters
     (4, 'Cave Ogre',      5, 140, 16, 4, 4, 3, 120,  9, 12, 'A hulking brute that fills the tunnel.'),
     (5, 'Goblin Warlord', 3,  90, 12, 3, 2, 2,  80,  2, 20, 'The banner-bearer of the warren.'),
     (6, 'Crypt Guardian', 6, 200, 20, 6, 6, 4, 200, 14, 25, 'An animated colossus of bone and iron.');
+
+-- Race / alignment / tags for the seeded monsters (idempotent).
+UPDATE monsters SET race = 'goblin',    alignment = 'evil'    WHERE id = 1;
+UPDATE monsters SET race = 'animal',    alignment = 'neutral' WHERE id = 2;
+UPDATE monsters SET race = 'human',     alignment = 'evil'    WHERE id = 3;
+UPDATE monsters SET race = 'giant',     alignment = 'evil'    WHERE id = 4;
+UPDATE monsters SET race = 'goblin',    alignment = 'evil'    WHERE id = 5;
+UPDATE monsters SET race = 'construct', alignment = 'evil'    WHERE id = 6;
+
+INSERT IGNORE INTO monster_tags (monster_id, tag) VALUES
+    (1, 'humanoid'), (1, 'goblin'), (1, 'evil'),
+    (2, 'animal'),   (2, 'beast'),  (2, 'neutral'),
+    (3, 'humanoid'), (3, 'evil'),
+    (4, 'humanoid'), (4, 'giant'),  (4, 'evil'),
+    (5, 'humanoid'), (5, 'goblin'), (5, 'evil'),
+    (6, 'inanimate'),(6, 'undead'), (6, 'evil');
 
 -- Explorable locations. Sites grant an ongoing settlement rate bonus on clear;
 -- dungeons instead give better reward loot. reward_item_id is granted on clear.
