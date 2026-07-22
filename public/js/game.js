@@ -47,13 +47,18 @@ function renderCharacter() {
         vitalBar('Mana', v.mana, v.mana_max) +
         vitalBar('Courage', v.courage, v.courage_max);
 
-    // Show effective stat, with the base in parentheses when gear changed it.
+    // Show effective value, with the base in parentheses when gear changed it.
+    const statRow = (label, base, eff) => {
+        const extra = eff !== base ? ` <em>(${base})</em>` : '';
+        return `<div class="stat"><span>${label}</span><b>${eff}${extra}</b></div>`;
+    };
+
     $('char-stats').innerHTML = Object.keys(c.stats)
-        .map(k => {
-            const base = c.stats[k], eff = c.stats_effective[k];
-            const extra = eff !== base ? ` <em>(${base})</em>` : '';
-            return `<div class="stat"><span>${k.toUpperCase()}</span><b>${eff}${extra}</b></div>`;
-        })
+        .map(k => statRow(k.toUpperCase(), c.stats[k], c.stats_effective[k]))
+        .join('');
+
+    $('char-substats').innerHTML = Object.keys(c.substats)
+        .map(k => statRow(k[0].toUpperCase() + k.slice(1), c.substats[k], c.substats_effective[k]))
         .join('');
 
     $('char-skills').innerHTML = Object.entries(c.skills)

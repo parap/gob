@@ -16,7 +16,8 @@ const LOOT_COOLDOWN_SECONDS = 20;
 function itemDefBrief(array $i): array
 {
     $bonuses = [];
-    foreach (['str', 'dex', 'con', 'int', 'wis', 'cha', 'hp', 'mana', 'courage'] as $k) {
+    foreach (['str', 'dex', 'con', 'int', 'wis', 'cha', 'hp', 'mana', 'courage',
+              'defense', 'protection', 'attack', 'penetration'] as $k) {
         $v = (int)$i["bonus_$k"];
         if ($v !== 0) {
             $bonuses[$k] = $v;

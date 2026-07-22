@@ -3,7 +3,11 @@ declare(strict_types=1);
 
 // Skills every new character starts with (value 1). Extend freely — these
 // are plain strings, so adding a weapon needs no database migration.
-const CHARACTER_SKILLS = ['unarmed', 'sword', 'axe', 'bow', 'flail'];
+// 'attack' lets the hero strike with their equipped weapon.
+const CHARACTER_SKILLS = ['attack', 'unarmed', 'sword', 'axe', 'bow', 'flail'];
+
+// Combat sub-stats: separate group from the six primary stats.
+const SUBSTAT_KEYS = ['defense', 'protection', 'attack', 'penetration'];
 
 // Equipment slots the paperdoll exposes. Two rings and two bracelets get
 // numbered slots; the rest are unique.
@@ -90,12 +94,18 @@ function handleMyCharacter(): void
         }
     }
 
-    // Base stats, plus effective stats = base + equipped bonuses.
+    // Base values, plus effective = base + equipped bonuses.
     $base      = [];
     $effective = [];
     foreach (STAT_KEYS as $col => $key) {
         $base[$key]      = (int)$c[$col];
         $effective[$key] = $base[$key];
+    }
+    $subBase = [];
+    $subEff  = [];
+    foreach (SUBSTAT_KEYS as $key) {
+        $subBase[$key] = (int)$c[$key];
+        $subEff[$key]  = $subBase[$key];
     }
     $vitals = [
         'hp'          => (int)$c['hp'],
@@ -111,7 +121,9 @@ function handleMyCharacter(): void
         }
         foreach ($it['bonuses'] as $k => $v) {
             if (isset($effective[$k])) {
-                $effective[$k] += $v;               // stat bonus
+                $effective[$k] += $v;                // primary stat
+            } elseif (isset($subEff[$k])) {
+                $subEff[$k] += $v;                   // combat sub-stat
             } elseif (isset($vitals["{$k}_max"])) {
                 $vitals["{$k}_max"] += $v;           // hp/mana/courage add to max
             }
@@ -119,13 +131,15 @@ function handleMyCharacter(): void
     }
 
     json(200, [
-        'id'              => (int)$c['id'],
-        'name'            => $c['name'],
-        'vitals'          => $vitals,
-        'stats'           => $base,
-        'stats_effective' => $effective,
-        'skills'          => $skills,
-        'equipment'       => $equipment,
-        'inventory'       => $inventory,
+        'id'                 => (int)$c['id'],
+        'name'               => $c['name'],
+        'vitals'             => $vitals,
+        'stats'              => $base,
+        'stats_effective'    => $effective,
+        'substats'           => $subBase,
+        'substats_effective' => $subEff,
+        'skills'             => $skills,
+        'equipment'          => $equipment,
+        'inventory'          => $inventory,
     ]);
 }

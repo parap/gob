@@ -67,6 +67,13 @@ CREATE TABLE IF NOT EXISTS characters (
     wisdom       SMALLINT UNSIGNED NOT NULL DEFAULT 1,
     charisma     SMALLINT UNSIGNED NOT NULL DEFAULT 1,
 
+    -- Combat sub-stats. defense/protection are innate; attack/penetration
+    -- default 0 (a bare-handed hero) and come mostly from the equipped weapon.
+    defense      INT NOT NULL DEFAULT 0,
+    protection   INT NOT NULL DEFAULT 0,
+    attack       INT NOT NULL DEFAULT 0,
+    penetration  INT NOT NULL DEFAULT 0,
+
     last_loot_at DATETIME NULL,          -- cooldown marker for loot searches
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
@@ -101,6 +108,10 @@ CREATE TABLE IF NOT EXISTS items (
     bonus_hp      INT NOT NULL DEFAULT 0,
     bonus_mana    INT NOT NULL DEFAULT 0,
     bonus_courage INT NOT NULL DEFAULT 0,
+    bonus_defense     SMALLINT NOT NULL DEFAULT 0,
+    bonus_protection  SMALLINT NOT NULL DEFAULT 0,
+    bonus_attack      SMALLINT NOT NULL DEFAULT 0,
+    bonus_penetration SMALLINT NOT NULL DEFAULT 0,
     description   VARCHAR(255) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -141,3 +152,21 @@ INSERT IGNORE INTO items
     (14, 'Scholar Glasses', 'glasses',   NULL,   'rare',     0, 0, 2, 1, 0,  0, 20,  0, 'Lenses that sharpen the mind.'),
     (15, 'War Banner',      'banner',    NULL,   'rare',     0, 0, 0, 0, 1,  0,  0, 15, 'Rallies the spirit in battle.'),
     (16, 'Oak Bracer',      'bracelet',  NULL,   'common',   0, 0, 0, 0, 0,  6,  0,  0, 'A simple wooden bracer.');
+
+-- Combat sub-stats for the seeded gear. Idempotent UPDATEs (run every time the
+-- schema is applied) so both fresh and existing databases get these values.
+UPDATE items SET bonus_attack = 5, bonus_penetration = 1 WHERE id = 1;   -- Rusty Sword
+UPDATE items SET bonus_attack = 4, bonus_penetration = 2 WHERE id = 2;   -- Short Bow
+UPDATE items SET bonus_defense = 2, bonus_protection = 1 WHERE id = 3;   -- Leather Cap
+UPDATE items SET bonus_defense = 6, bonus_protection = 2 WHERE id = 5;   -- Oak Shield
+UPDATE items SET bonus_attack = 8, bonus_penetration = 2 WHERE id = 6;   -- Steel Axe
+UPDATE items SET bonus_attack = 6, bonus_penetration = 3 WHERE id = 7;   -- Hunting Bow
+UPDATE items SET bonus_protection = 1 WHERE id = 8;                      -- Silver Ring
+UPDATE items SET bonus_defense = 8, bonus_protection = 4 WHERE id = 9;   -- Chainmail
+UPDATE items SET bonus_defense = 2, bonus_protection = 2 WHERE id = 10;  -- Runed Gauntlets
+UPDATE items SET bonus_defense = 1 WHERE id = 11;                        -- Leather Boots
+UPDATE items SET bonus_defense = 2 WHERE id = 12;                        -- Padded Sleeves
+UPDATE items SET bonus_defense = 1 WHERE id = 13;                        -- Traveler Pants
+UPDATE items SET bonus_protection = 1 WHERE id = 14;                     -- Scholar Glasses
+UPDATE items SET bonus_attack = 2 WHERE id = 15;                         -- War Banner
+UPDATE items SET bonus_defense = 1 WHERE id = 16;                        -- Oak Bracer
