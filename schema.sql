@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS characters (
     protection   INT NOT NULL DEFAULT 0,
     attack       INT NOT NULL DEFAULT 0,
     penetration  INT NOT NULL DEFAULT 0,
+    regen_bonus  INT NOT NULL DEFAULT 0,   -- extra HP/min from cleared regen sites
 
     last_loot_at    DATETIME NULL,       -- cooldown marker for loot searches
     last_regen_at   DATETIME NULL,       -- marker for passive HP regeneration
@@ -114,6 +115,8 @@ CREATE TABLE IF NOT EXISTS items (
     bonus_protection  SMALLINT NOT NULL DEFAULT 0,
     bonus_attack      SMALLINT NOT NULL DEFAULT 0,
     bonus_penetration SMALLINT NOT NULL DEFAULT 0,
+    kind          VARCHAR(16)  NOT NULL DEFAULT 'gear',  -- 'gear' | 'consumable'
+    heal_hp       INT NOT NULL DEFAULT 0,                -- HP restored when a consumable is used
     description   VARCHAR(255) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -154,6 +157,11 @@ INSERT IGNORE INTO items
     (14, 'Scholar Glasses', 'glasses',   NULL,   'rare',     0, 0, 2, 1, 0,  0, 20,  0, 'Lenses that sharpen the mind.'),
     (15, 'War Banner',      'banner',    NULL,   'rare',     0, 0, 0, 0, 1,  0,  0, 15, 'Rallies the spirit in battle.'),
     (16, 'Oak Bracer',      'bracelet',  NULL,   'common',   0, 0, 0, 0, 0,  6,  0,  0, 'A simple wooden bracer.');
+
+-- Consumable healing potions (usable from the backpack, not equipped).
+INSERT IGNORE INTO items (id, name, slot_type, rarity, kind, heal_hp, description) VALUES
+    (17, 'Minor Healing Potion',   'potion', 'common',   'consumable',  50, 'Restores 50 HP.'),
+    (18, 'Greater Healing Potion', 'potion', 'uncommon', 'consumable', 150, 'Restores 150 HP.');
 
 -- Combat sub-stats for the seeded gear. Idempotent UPDATEs (run every time the
 -- schema is applied) so both fresh and existing databases get these values.
@@ -211,6 +219,7 @@ CREATE TABLE IF NOT EXISTS locations (
     bonus_gold_rate  INT NOT NULL DEFAULT 0,
     bonus_wood_rate  INT NOT NULL DEFAULT 0,
     bonus_stone_rate INT NOT NULL DEFAULT 0,
+    bonus_regen      INT NOT NULL DEFAULT 0,   -- extra HP/min granted to the hero on clear
     reward_item_id   INT UNSIGNED NULL,
     FOREIGN KEY (reward_item_id) REFERENCES items(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -252,3 +261,10 @@ INSERT IGNORE INTO location_stages
     (1, 1, 1, 0), (1, 2, 1, 0), (1, 3, 3, 1),               -- Mine: Goblin, Goblin, Bandit (boss)
     (2, 1, 2, 0), (2, 2, 2, 0), (2, 3, 5, 1),               -- Grove: Wolf, Wolf, Warlord (boss)
     (3, 1, 3, 0), (3, 2, 2, 0), (3, 3, 4, 0), (3, 4, 6, 1); -- Crypt: Bandit, Wolf, Ogre, Guardian (boss)
+
+-- A site whose ongoing reward is faster HP regeneration.
+INSERT IGNORE INTO locations
+    (id, type, name, description, level, bonus_regen, reward_item_id) VALUES
+    (4, 'site', 'Sacred Spring', 'Healing waters, jealously guarded.', 2, 30, 18);
+INSERT IGNORE INTO location_stages (location_id, stage_no, monster_id, is_boss) VALUES
+    (4, 1, 2, 0), (4, 2, 3, 0), (4, 3, 5, 1);               -- Spring: Wolf, Bandit, Warlord (boss)

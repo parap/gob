@@ -9,7 +9,7 @@ function listPlayerLocations(int $playerId): array
     $stmt = db()->prepare(
         'SELECT pl.id, pl.location_id, pl.progress, pl.state,
                 l.type, l.name, l.description, l.level,
-                l.bonus_gold_rate, l.bonus_wood_rate, l.bonus_stone_rate, l.reward_item_id,
+                l.bonus_gold_rate, l.bonus_wood_rate, l.bonus_stone_rate, l.bonus_regen, l.reward_item_id,
                 (SELECT COUNT(*) FROM location_stages s WHERE s.location_id = l.id) AS total_stages,
                 (SELECT m.name FROM location_stages s JOIN monsters m ON m.id = s.monster_id
                  WHERE s.location_id = l.id AND s.stage_no = pl.progress + 1) AS next_monster
@@ -34,6 +34,7 @@ function listPlayerLocations(int $playerId): array
             'gold_rate'  => (int)$r['bonus_gold_rate'],
             'wood_rate'  => (int)$r['bonus_wood_rate'],
             'stone_rate' => (int)$r['bonus_stone_rate'],
+            'regen'      => (int)$r['bonus_regen'],
             'item_id'    => $r['reward_item_id'] !== null ? (int)$r['reward_item_id'] : null,
         ],
     ], $stmt->fetchAll());
@@ -101,28 +102,38 @@ function applyLocationCompletion(array $player, int $charId, array $loc): array
     $db      = db();
     $summary = ['rate' => null, 'item' => null];
 
-    $hasRate = (int)$loc['bonus_gold_rate'] || (int)$loc['bonus_wood_rate'] || (int)$loc['bonus_stone_rate'];
-    if ($loc['type'] === 'site' && $hasRate) {
-        $stmt = $db->prepare('SELECT * FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
-        $stmt->execute([$player['id']]);
-        if ($settlement = $stmt->fetch()) {
-            // Settle production at the OLD rate before bumping it.
-            tickSettlement($settlement);
-            $db->prepare(
-                'UPDATE settlements SET
-                    rate_gold_per_hour  = rate_gold_per_hour  + ?,
-                    rate_wood_per_hour  = rate_wood_per_hour  + ?,
-                    rate_stone_per_hour = rate_stone_per_hour + ?
-                 WHERE id = ?'
-            )->execute([
-                (int)$loc['bonus_gold_rate'], (int)$loc['bonus_wood_rate'],
-                (int)$loc['bonus_stone_rate'], $settlement['id'],
-            ]);
-            $summary['rate'] = [
-                'gold'  => (int)$loc['bonus_gold_rate'],
-                'wood'  => (int)$loc['bonus_wood_rate'],
-                'stone' => (int)$loc['bonus_stone_rate'],
-            ];
+    if ($loc['type'] === 'site') {
+        $hasRate = (int)$loc['bonus_gold_rate'] || (int)$loc['bonus_wood_rate'] || (int)$loc['bonus_stone_rate'];
+        if ($hasRate) {
+            $stmt = $db->prepare('SELECT * FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
+            $stmt->execute([$player['id']]);
+            if ($settlement = $stmt->fetch()) {
+                // Settle production at the OLD rate before bumping it.
+                tickSettlement($settlement);
+                $db->prepare(
+                    'UPDATE settlements SET
+                        rate_gold_per_hour  = rate_gold_per_hour  + ?,
+                        rate_wood_per_hour  = rate_wood_per_hour  + ?,
+                        rate_stone_per_hour = rate_stone_per_hour + ?
+                     WHERE id = ?'
+                )->execute([
+                    (int)$loc['bonus_gold_rate'], (int)$loc['bonus_wood_rate'],
+                    (int)$loc['bonus_stone_rate'], $settlement['id'],
+                ]);
+                $summary['rate'] = [
+                    'gold'  => (int)$loc['bonus_gold_rate'],
+                    'wood'  => (int)$loc['bonus_wood_rate'],
+                    'stone' => (int)$loc['bonus_stone_rate'],
+                ];
+            }
+        }
+
+        // Ongoing regen reward: settle current regen, then raise the rate.
+        if ((int)$loc['bonus_regen'] > 0) {
+            tickCharacterRegen($charId);
+            $db->prepare('UPDATE characters SET regen_bonus = regen_bonus + ? WHERE id = ?')
+               ->execute([(int)$loc['bonus_regen'], $charId]);
+            $summary['regen'] = (int)$loc['bonus_regen'];
         }
     }
 
@@ -144,7 +155,7 @@ function handleAdvance(): void
 
     $stmt = $db->prepare(
         'SELECT pl.*, l.type, l.name, l.reward_item_id,
-                l.bonus_gold_rate, l.bonus_wood_rate, l.bonus_stone_rate
+                l.bonus_gold_rate, l.bonus_wood_rate, l.bonus_stone_rate, l.bonus_regen
          FROM player_locations pl JOIN locations l ON l.id = pl.location_id
          WHERE pl.id = ? AND pl.player_id = ?'
     );

@@ -28,6 +28,8 @@ function itemDefBrief(array $i): array
         'name'      => $i['name'],
         'slot_type' => $i['slot_type'],
         'rarity'    => $i['rarity'],
+        'kind'      => $i['kind'],
+        'heal'      => (int)$i['heal_hp'],
         'bonuses'   => $bonuses,
     ];
 }

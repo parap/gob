@@ -82,7 +82,7 @@ function equippedHpBonus(int $charId): int
 function tickCharacterRegen(int $charId): void
 {
     $db   = db();
-    $stmt = $db->prepare('SELECT hp, hp_max, last_regen_at FROM characters WHERE id = ?');
+    $stmt = $db->prepare('SELECT hp, hp_max, regen_bonus, last_regen_at FROM characters WHERE id = ?');
     $stmt->execute([$charId]);
     $row = $stmt->fetch();
     if (!$row) {
@@ -94,8 +94,9 @@ function tickCharacterRegen(int $charId): void
         return;
     }
 
-    $elapsed = time() - strtotime($row['last_regen_at']);
-    $regen   = (int)floor($elapsed * HP_REGEN_PER_MIN / 60);
+    $ratePerMin = HP_REGEN_PER_MIN + (int)$row['regen_bonus'];
+    $elapsed    = time() - strtotime($row['last_regen_at']);
+    $regen      = (int)floor($elapsed * $ratePerMin / 60);
     if ($regen <= 0) {
         return;
     }

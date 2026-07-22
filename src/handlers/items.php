@@ -31,6 +31,8 @@ function itemDetail(array $r): array
         'rarity'        => $r['rarity'],
         'weapon_skill'  => $r['weapon_skill'],
         'equipped_slot' => $r['equipped_slot'],
+        'kind'          => $r['kind'],
+        'heal'          => (int)$r['heal_hp'],
         'bonuses'       => $bonuses,
     ];
 }
@@ -43,7 +45,8 @@ function ownedItems(int $charId): array
                 i.name, i.slot_type, i.rarity, i.weapon_skill,
                 i.bonus_str, i.bonus_dex, i.bonus_con, i.bonus_int, i.bonus_wis, i.bonus_cha,
                 i.bonus_hp, i.bonus_mana, i.bonus_courage,
-                i.bonus_defense, i.bonus_protection, i.bonus_attack, i.bonus_penetration
+                i.bonus_defense, i.bonus_protection, i.bonus_attack, i.bonus_penetration,
+                i.kind, i.heal_hp
          FROM character_items ci
          JOIN items i ON i.id = ci.item_id
          WHERE ci.character_id = ?
@@ -74,7 +77,7 @@ function handleEquip(): void
 
     // The instance must belong to this character.
     $stmt = $db->prepare(
-        'SELECT ci.id, i.slot_type
+        'SELECT ci.id, i.slot_type, i.kind
          FROM character_items ci JOIN items i ON i.id = ci.item_id
          WHERE ci.id = ? AND ci.character_id = ?'
     );
@@ -82,6 +85,9 @@ function handleEquip(): void
     $row = $stmt->fetch();
     if (!$row) {
         json(404, ['error' => 'Item not found.']);
+    }
+    if ($row['kind'] === 'consumable') {
+        json(400, ['error' => 'That item cannot be equipped — use it instead.']);
     }
 
     $allowed = slotsForType($row['slot_type']);
@@ -122,6 +128,47 @@ function firstFreeSlot(int $charId, array $allowed): ?string
         }
     }
     return null;
+}
+
+function handleUseItem(): void
+{
+    $player = requirePlayer();
+    $charId = ensureCharacter((int)$player['id'], $player['username']);
+    $db     = db();
+
+    $charItemId = (int)(body()['char_item_id'] ?? 0);
+    $stmt = $db->prepare(
+        'SELECT ci.id, i.kind, i.heal_hp, i.name
+         FROM character_items ci JOIN items i ON i.id = ci.item_id
+         WHERE ci.id = ? AND ci.character_id = ?'
+    );
+    $stmt->execute([$charItemId, $charId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        json(404, ['error' => 'Item not found.']);
+    }
+    if ($row['kind'] !== 'consumable') {
+        json(400, ['error' => 'That item cannot be used.']);
+    }
+
+    tickCharacterRegen($charId); // settle passive regen before healing
+
+    $ch = $db->prepare('SELECT hp, hp_max FROM characters WHERE id = ?');
+    $ch->execute([$charId]);
+    $c = $ch->fetch();
+
+    $effMax = (int)$c['hp_max'] + equippedHpBonus($charId);
+    $newHp  = min($effMax, (int)$c['hp'] + (int)$row['heal_hp']);
+    $healed = $newHp - (int)$c['hp'];
+
+    $db->prepare('UPDATE characters SET hp = ? WHERE id = ?')->execute([$newHp, $charId]);
+    $db->prepare('DELETE FROM character_items WHERE id = ?')->execute([$charItemId]);
+
+    json(200, [
+        'healed'    => $healed,
+        'name'      => $row['name'],
+        'character' => loadCharacter($charId),
+    ]);
 }
 
 function handleUnequip(): void

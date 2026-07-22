@@ -118,14 +118,18 @@ function renderCharacter() {
             : `<div class="slot empty"><span>${slotLabel(slot)}</span><b>—</b></div>`)
         .join('');
 
-    // Backpack: click Equip to wear an item.
+    // Backpack: Equip gear, or Use consumables (potions).
     $('char-inventory').innerHTML = c.inventory.length
         ? c.inventory.map(it => {
-            const b = bonusText(it.bonuses);
+            const consumable = it.kind === 'consumable';
+            const info = consumable ? `heals ${it.heal}` : bonusText(it.bonuses);
+            const btn = consumable
+                ? `<button class="btn-mini" data-use="${it.char_item_id}">Use</button>`
+                : `<button class="btn-mini" data-equip="${it.char_item_id}">Equip</button>`;
             return `<div class="inv-item">
                 <span class="inv-name">${it.name}</span>
-                <span class="inv-bonus">${b}</span>
-                <button class="btn-mini" data-equip="${it.char_item_id}">Equip</button>
+                <span class="inv-bonus">${info}</span>
+                ${btn}
             </div>`;
         }).join('')
         : '<p class="muted">Empty.</p>';
@@ -139,6 +143,11 @@ async function equipItem(charItemId) {
 async function unequipSlot(slot) {
     const { status, body } = await req('POST', '/items/unequip', { slot });
     if (status === 200) { state.character = body; renderCharacter(); }
+}
+
+async function useItem(charItemId) {
+    const { status, body } = await req('POST', '/items/use', { char_item_id: charItemId });
+    if (status === 200) { state.character = body.character; renderCharacter(); }
 }
 
 async function searchLoot() {
@@ -208,6 +217,7 @@ async function advance(playerLocationId) {
             const parts = Object.entries(r.rate).filter(([, v]) => v).map(([k, v]) => `+${v} ${k}/hr`);
             if (parts.length) bits.push(parts.join(', '));
         }
+        if (r.regen) bits.push(`+${r.regen} regen/min`);
         if (r.item) bits.push('reward item');
         $('explore-result').textContent = `Cleared ${body.location_name}! ${bits.join(' · ')}`;
     }
@@ -218,6 +228,7 @@ function rateRewardText(reward) {
     if (reward.gold_rate) parts.push(`+${reward.gold_rate} gold/hr`);
     if (reward.wood_rate) parts.push(`+${reward.wood_rate} wood/hr`);
     if (reward.stone_rate) parts.push(`+${reward.stone_rate} stone/hr`);
+    if (reward.regen) parts.push(`+${reward.regen} regen/min`);
     return parts.join(', ');
 }
 
