@@ -34,6 +34,7 @@ function itemDetail(array $r): array
         'kind'          => $r['kind'],
         'heal'          => (int)$r['heal_hp'],
         'sell_value'    => (int)$r['sell_value'],
+        'description'   => $r['description'] ?? '',
         'bonuses'       => $bonuses,
     ];
 }
@@ -47,7 +48,7 @@ function ownedItems(int $charId): array
                 i.bonus_str, i.bonus_dex, i.bonus_con, i.bonus_int, i.bonus_wis, i.bonus_cha,
                 i.bonus_hp, i.bonus_mana, i.bonus_courage,
                 i.bonus_defense, i.bonus_protection, i.bonus_attack, i.bonus_penetration,
-                i.bonus_perception, i.kind, i.heal_hp, i.sell_value
+                i.bonus_perception, i.kind, i.heal_hp, i.sell_value, i.description
          FROM character_items ci
          JOIN items i ON i.id = ci.item_id
          WHERE ci.character_id = ?

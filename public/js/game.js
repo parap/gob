@@ -25,8 +25,9 @@ async function loadMonsters() {
     $('monster-list').innerHTML = body.map(m => `
         <div class="monster">
             <div class="monster-info">
-                <span class="monster-name">${m.name} <em>Lv${m.level}</em></span>
+                <span class="monster-name">${esc(m.name)} <em>Lv${m.level}</em></span>
                 <span class="monster-stats">${m.hp} hp · atk ${m.attack} · def ${m.defense} · ${m.reward_gold}g</span>
+                ${m.description ? `<span class="entity-descr">${esc(m.description)}</span>` : ''}
             </div>
             <button class="btn-mini" data-fight="${m.id}">Fight</button>
         </div>`).join('');
@@ -144,16 +145,17 @@ function renderCharacter() {
         .map(([k, val]) => `<div class="skill"><span>${k}</span><b>${val}</b></div>`)
         .join('');
 
-    // Equipped items: click a filled slot to unequip.
+    // Equipped items: description in the tooltip; click a filled slot to unequip.
     $('char-equipment').innerHTML = Object.entries(c.equipment)
         .map(([slot, item]) => item
-            ? `<div class="slot filled" data-unequip="${slot}" title="Click to unequip">
-                   <span>${slotLabel(slot)}</span><b>${item.name}</b>
+            ? `<div class="slot filled" data-unequip="${slot}"
+                    title="${esc(item.name + (item.description ? ' — ' + item.description : '') + ' (click to unequip)')}">
+                   <span>${slotLabel(slot)}</span><b>${esc(item.name)}</b>
                </div>`
             : `<div class="slot empty"><span>${slotLabel(slot)}</span><b>—</b></div>`)
         .join('');
 
-    // Backpack: Equip gear, or Use consumables (potions).
+    // Backpack: Equip gear or Use consumables; each shows its description.
     $('char-inventory').innerHTML = c.inventory.length
         ? c.inventory.map(it => {
             const consumable = it.kind === 'consumable';
@@ -163,9 +165,11 @@ function renderCharacter() {
                 : `<button class="btn-mini" data-equip="${it.char_item_id}">Equip</button>`;
             const sell = `<button class="btn-mini btn-sell" data-sell="${it.char_item_id}">Sell ${it.sell_value}g</button>`;
             return `<div class="inv-item">
-                <span class="inv-name">${it.name}</span>
-                <span class="inv-bonus">${info}</span>
-                ${btn}${sell}
+                <div class="inv-main">
+                    <span class="inv-head"><span class="inv-name">${esc(it.name)}</span> <span class="inv-bonus">${esc(info)}</span></span>
+                    ${it.description ? `<span class="entity-descr">${esc(it.description)}</span>` : ''}
+                </div>
+                <div class="inv-actions">${btn}${sell}</div>
             </div>`;
         }).join('')
         : '<p class="muted">Empty.</p>';

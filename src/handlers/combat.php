@@ -18,7 +18,7 @@ function handleMonsters(): void
         'protection'  => (int)$m['protection'],
         'penetration' => (int)$m['penetration'],
         'reward_gold' => (int)$m['reward_gold'],
-        'description' => $m['description'],
+        'description' => $m['description'] ?? '',
     ], $rows);
     json(200, $out);
 }

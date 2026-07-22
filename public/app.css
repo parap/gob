@@ -152,18 +152,25 @@ input:focus { outline: none; border-color: var(--accent); }
 .loot-bar .btn { padding: 0.5rem 0.9rem; }
 #btn-loot:disabled { opacity: 0.5; cursor: default; }
 
+/* Flavor/description text, shared by monsters and items. */
+.entity-descr { display: block; color: var(--muted); font-size: 0.78rem; font-style: italic; margin-top: 0.2rem; line-height: 1.35; }
+
 /* Backpack */
 .inv-list { display: flex; flex-direction: column; gap: 0.4rem; }
-.inv-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; background: var(--bg); border-radius: 6px; }
-.inv-item .inv-name { flex: 1; }
+.inv-item { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.5rem 0.6rem; background: var(--bg); border-radius: 6px; }
+.inv-main { flex: 1; min-width: 0; }
+.inv-head { display: block; }
+.inv-bonus { color: var(--accent); font-size: 0.8rem; }
+.inv-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
 .btn-sell { background: var(--line); color: var(--text); }
 .inv-bonus { color: var(--accent); font-size: 0.8rem; }
 .btn-mini { padding: 0.25rem 0.7rem; background: var(--accent); color: #17130a; border: none; border-radius: 5px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
 
 /* Adventure / combat */
 .monster-list { display: flex; flex-direction: column; gap: 0.4rem; }
-.monster { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.5rem 0.6rem; background: var(--bg); border-radius: 6px; }
-.monster-info { display: flex; flex-direction: column; }
+.monster { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; padding: 0.5rem 0.6rem; background: var(--bg); border-radius: 6px; }
+.monster-info { display: flex; flex-direction: column; min-width: 0; }
+.monster [data-fight] { flex-shrink: 0; }
 .monster-name em { color: var(--muted); font-style: normal; font-size: 0.8rem; }
 .monster-stats { color: var(--muted); font-size: 0.78rem; }
 .combat-log { margin-top: 0.5rem; max-height: 260px; overflow-y: auto; font-size: 0.82rem; }

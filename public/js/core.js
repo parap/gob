@@ -14,6 +14,12 @@ const state = {
 
 function $(id) { return document.getElementById(id); }
 
+// Escape for safe insertion into HTML text or double-quoted attributes.
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 // One wrapper for all API calls: attaches the auth token, sends/parses JSON.
 // Returns { status, body }.
 async function req(method, path, body) {
