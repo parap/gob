@@ -293,7 +293,6 @@ function renderWorld() {
     const actionable = sites.filter(s => s.type !== 'road');
     $('site-list').innerHTML = actionable.length
         ? actionable.map(s => {
-            const rw = rewardText(s.reward);
             const action = s.state === 'cleared'
                 ? `<span class="loc-cleared">Cleared ✓</span>`
                 : `<button class="btn-mini" data-delve="${s.id}">Delve</button>`;
@@ -303,7 +302,6 @@ function renderWorld() {
             return `<div class="location loc-${s.type} ${s.state}">
                 <div class="loc-info">
                     <span class="loc-name">${esc(s.name)}${typeTag}</span>
-                    <span class="loc-progress">${s.progress}/${s.total_stages} stages${rw ? ' · ' + rw : ''}</span>
                     ${next}
                 </div>
                 <div class="loc-action">${action}</div>
