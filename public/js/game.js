@@ -299,9 +299,10 @@ function renderWorld() {
                 : `<button class="btn-mini" data-delve="${s.id}">Delve</button>`;
             const next = s.state === 'found' && s.next_monster
                 ? `<span class="loc-next">Guarded by ${esc(s.next_monster)}</span>` : '';
+            const typeTag = s.type === 'minor' ? '' : ` <em>${s.type}</em>`;
             return `<div class="location loc-${s.type} ${s.state}">
                 <div class="loc-info">
-                    <span class="loc-name">${esc(s.name)} <em>${s.type}</em></span>
+                    <span class="loc-name">${esc(s.name)}${typeTag}</span>
                     <span class="loc-progress">${s.progress}/${s.total_stages} stages${rw ? ' · ' + rw : ''}</span>
                     ${next}
                 </div>
@@ -355,7 +356,9 @@ async function exploreWorld() {
     (body.found || []).forEach(f => {
         const at = Math.min(100, Math.max(0, f.at || 0));
         setTimeout(() => {
-            const label = f.type === 'road' ? `🛣 ${esc(f.name)}` : `Found ${esc(f.name)} — ${f.type}`;
+            const label = f.type === 'road'
+                ? `🛣 ${esc(f.name)}`
+                : `Found ${esc(f.name)}${f.type === 'minor' ? '' : ' — ' + f.type}`;
             res.insertAdjacentHTML('beforeend', `<div class="find-line">${label}</div>`);
         }, (at / 100) * SEARCH_MS);
     });
