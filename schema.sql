@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS items (
     kind          VARCHAR(16)  NOT NULL DEFAULT 'gear',  -- 'gear' | 'consumable'
     heal_hp       INT NOT NULL DEFAULT 0,                -- HP restored when a consumable is used
     sell_value    INT NOT NULL DEFAULT 0,                -- gold gained when sold
-    description   VARCHAR(255) NULL
+    description   TEXT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Item instances a character owns. equipped_slot is NULL when the item sits
@@ -207,7 +207,7 @@ CREATE TABLE IF NOT EXISTS monsters (
     reward_gold  INT NOT NULL DEFAULT 0,
     loot_item_id INT UNSIGNED NULL,
     loot_chance  TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    description  VARCHAR(255) NULL,
+    description  TEXT NULL,
     FOREIGN KEY (loot_item_id) REFERENCES items(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
