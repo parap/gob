@@ -186,6 +186,15 @@ function ensureHomeProvince(int $playerId, int $charId): int
 function worldSitePayload(array $s): array
 {
     $stages = $s['stages_json'] ? json_decode($s['stages_json'], true) : [];
+
+    // Name of the monster guarding the next stage (for sites still to fight).
+    $next = null;
+    if ($s['state'] === 'found' && isset($stages[(int)$s['progress']])) {
+        $st = db()->prepare('SELECT name FROM monsters WHERE id = ?');
+        $st->execute([(int)$stages[(int)$s['progress']]]);
+        $next = $st->fetchColumn() ?: null;
+    }
+
     return [
         'id'           => (int)$s['id'],
         'type'         => $s['type'],
@@ -193,6 +202,7 @@ function worldSitePayload(array $s): array
         'state'        => $s['state'],
         'progress'     => (int)$s['progress'],
         'total_stages' => count($stages),
+        'next_monster' => $next,
         'road_terrain' => $s['road_terrain'],
         'reward'       => [
             'gold'       => (int)$s['reward_gold'],

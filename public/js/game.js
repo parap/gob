@@ -297,10 +297,13 @@ function renderWorld() {
             const action = s.state === 'cleared'
                 ? `<span class="loc-cleared">Cleared ✓</span>`
                 : `<button class="btn-mini" data-delve="${s.id}">Delve</button>`;
+            const next = s.state === 'found' && s.next_monster
+                ? `<span class="loc-next">Guarded by ${esc(s.next_monster)}</span>` : '';
             return `<div class="location loc-${s.type} ${s.state}">
                 <div class="loc-info">
                     <span class="loc-name">${esc(s.name)} <em>${s.type}</em></span>
                     <span class="loc-progress">${s.progress}/${s.total_stages} stages${rw ? ' · ' + rw : ''}</span>
+                    ${next}
                 </div>
                 <div class="loc-action">${action}</div>
             </div>`;
@@ -323,29 +326,42 @@ function renderWorld() {
 }
 
 async function exploreWorld() {
+    const btn = $('btn-explore');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    $('explore-result').textContent = '';
+
+    // Animated "Searching…" indicator (no numbers) for the search duration.
+    const startedAt = Date.now();
+    let dots = 0;
+    const anim = setInterval(() => { dots = (dots + 1) % 4; btn.textContent = 'Searching' + '.'.repeat(dots); }, 350);
+
     const { status, body } = await req('POST', '/world/explore');
-    if (status === 429) {
-        $('explore-result').textContent = body.error;
-        startCooldown('btn-explore', 'Explore', body.retry_after);
-        return;
-    }
-    if (status !== 200) return;
+    const secs = status === 200 ? (body.cooldown_seconds || 8) : (body.retry_after || 1);
+    const wait = Math.max(400, secs * 1000 - (Date.now() - startedAt));
 
-    setCharacter(body.character);
-    renderCharacter();
-    await Promise.all([loadWorld(), loadSettlements()]);
+    // Reveal the result only once the search has "ended".
+    setTimeout(async () => {
+        clearInterval(anim);
+        btn.disabled = false;
+        btn.textContent = 'Explore';
+        if (status === 429) { $('explore-result').textContent = body.error; return; }
+        if (status !== 200) return;
 
-    // Build a one-line summary of this sweep.
-    const bits = [];
-    (body.found || []).forEach(f => bits.push(`${f.type === 'road' ? '🛣' : ''}${f.name}`));
-    if (body.new_province) bits.push(`→ new province: ${body.new_province.name} (${body.new_province.terrain})`);
-    if (body.raid) {
-        const r = body.raid;
-        bits.push(`⚔ raid by ${r.monster}: ${r.combat.outcome}${r.lost_site ? ` (lost ${r.lost_site}!)` : ''}`);
-        renderCombat(r.combat);
-    }
-    $('explore-result').textContent = bits.length ? bits.join(' · ') : 'Found nothing this time.';
-    startCooldown('btn-explore', 'Explore', body.cooldown_seconds);
+        setCharacter(body.character);
+        renderCharacter();
+        await Promise.all([loadWorld(), loadSettlements()]);
+        if (body.raid) renderCombat(body.raid.combat);
+
+        const bits = [];
+        (body.found || []).forEach(f => bits.push(`${f.type === 'road' ? '🛣 ' : ''}${f.name}`));
+        if (body.new_province) bits.push(`→ new province: ${body.new_province.name} (${body.new_province.terrain})`);
+        if (body.raid) {
+            const r = body.raid;
+            bits.push(`⚔ raid by ${r.monster}: ${r.combat.outcome}${r.lost_site ? ` (lost ${r.lost_site}!)` : ''}`);
+        }
+        $('explore-result').textContent = bits.length ? bits.join(' · ') : 'Found nothing this time.';
+    }, wait);
 }
 
 async function travelTo(provinceId) {
