@@ -160,12 +160,15 @@ function loadCharacter(int $charId): array
         'courage'     => (int)$c['courage'],
         'courage_max' => (int)$c['courage_max'],
     ];
+    $perceptionBonus = 0;
     foreach ($equipment as $it) {
         if ($it === null) {
             continue;
         }
         foreach ($it['bonuses'] as $k => $v) {
-            if (isset($effective[$k])) {
+            if ($k === 'perception') {
+                $perceptionBonus += $v;              // derived sub-stat, applied below
+            } elseif (isset($effective[$k])) {
                 $effective[$k] += $v;                // primary stat
             } elseif (isset($subEff[$k])) {
                 $subEff[$k] += $v;                   // combat sub-stat
@@ -174,6 +177,10 @@ function loadCharacter(int $charId): array
             }
         }
     }
+
+    // Perception is derived from intelligence + dexterity, plus gear bonuses.
+    $subBase['perception'] = $base['int'] + $base['dex'];
+    $subEff['perception']  = $effective['int'] + $effective['dex'] + $perceptionBonus;
 
     return [
         'id'                 => (int)$c['id'],

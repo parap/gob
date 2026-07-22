@@ -67,19 +67,36 @@ function handleExplore(): void
     }
     $db->prepare('UPDATE characters SET last_explore_at = NOW() WHERE id = ?')->execute([$charId]);
 
-    // Discover a random location not yet found by this player.
+    // What the hero can currently perceive gates what they can find.
+    $perception = loadCharacter($charId)['substats_effective']['perception'];
+
+    // Discover a random undiscovered location within the hero's perception.
     $stmt = $db->prepare(
         'SELECT * FROM locations
          WHERE id NOT IN (SELECT location_id FROM player_locations WHERE player_id = ?)
+           AND min_perception <= ?
          ORDER BY RAND() LIMIT 1'
     );
-    $stmt->execute([$player['id']]);
+    $stmt->execute([$player['id'], $perception]);
     $loc = $stmt->fetch();
 
     if (!$loc) {
+        // Distinguish "nothing left" from "there's more, but you can't perceive it yet".
+        $stmt = $db->prepare(
+            'SELECT MIN(min_perception) FROM locations
+             WHERE id NOT IN (SELECT location_id FROM player_locations WHERE player_id = ?)'
+        );
+        $stmt->execute([$player['id']]);
+        $nextThreshold = $stmt->fetchColumn();
+
+        $message = $nextThreshold === null
+            ? 'You explored far and wide but found nothing new.'
+            : "You sense hidden places nearby, but your perception ($perception) is too low to find them.";
+
         json(200, [
             'found'            => null,
-            'message'          => 'You explored far and wide but found nothing new.',
+            'message'          => $message,
+            'perception'       => $perception,
             'cooldown_seconds' => EXPLORE_COOLDOWN_SECONDS,
             'locations'        => listPlayerLocations((int)$player['id']),
         ]);

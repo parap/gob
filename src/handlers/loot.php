@@ -17,7 +17,7 @@ function itemDefBrief(array $i): array
 {
     $bonuses = [];
     foreach (['str', 'dex', 'con', 'int', 'wis', 'cha', 'hp', 'mana', 'courage',
-              'defense', 'protection', 'attack', 'penetration'] as $k) {
+              'defense', 'protection', 'attack', 'penetration', 'perception'] as $k) {
         $v = (int)$i["bonus_$k"];
         if ($v !== 0) {
             $bonuses[$k] = $v;

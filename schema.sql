@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS items (
     bonus_protection  SMALLINT NOT NULL DEFAULT 0,
     bonus_attack      SMALLINT NOT NULL DEFAULT 0,
     bonus_penetration SMALLINT NOT NULL DEFAULT 0,
+    bonus_perception  SMALLINT NOT NULL DEFAULT 0,
     kind          VARCHAR(16)  NOT NULL DEFAULT 'gear',  -- 'gear' | 'consumable'
     heal_hp       INT NOT NULL DEFAULT 0,                -- HP restored when a consumable is used
     description   VARCHAR(255) NULL
@@ -180,6 +181,8 @@ UPDATE items SET bonus_defense = 1 WHERE id = 13;                        -- Trav
 UPDATE items SET bonus_protection = 1 WHERE id = 14;                     -- Scholar Glasses
 UPDATE items SET bonus_attack = 2 WHERE id = 15;                         -- War Banner
 UPDATE items SET bonus_defense = 1 WHERE id = 16;                        -- Oak Bracer
+UPDATE items SET bonus_perception = 3 WHERE id = 14;                     -- Scholar Glasses
+UPDATE items SET bonus_perception = 1 WHERE id = 8;                      -- Silver Ring
 
 -- PvE enemies the hero can fight. loot_item_id + loot_chance (percent) give a
 -- chance to drop that item on a win.
@@ -220,6 +223,7 @@ CREATE TABLE IF NOT EXISTS locations (
     bonus_wood_rate  INT NOT NULL DEFAULT 0,
     bonus_stone_rate INT NOT NULL DEFAULT 0,
     bonus_regen      INT NOT NULL DEFAULT 0,   -- extra HP/min granted to the hero on clear
+    min_perception   SMALLINT UNSIGNED NOT NULL DEFAULT 0,  -- perception needed to discover it
     reward_item_id   INT UNSIGNED NULL,
     FOREIGN KEY (reward_item_id) REFERENCES items(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -268,3 +272,9 @@ INSERT IGNORE INTO locations
     (4, 'site', 'Sacred Spring', 'Healing waters, jealously guarded.', 2, 30, 18);
 INSERT IGNORE INTO location_stages (location_id, stage_no, monster_id, is_boss) VALUES
     (4, 1, 2, 0), (4, 2, 3, 0), (4, 3, 5, 1);               -- Spring: Wolf, Bandit, Warlord (boss)
+
+-- Perception thresholds to discover each location (idempotent).
+UPDATE locations SET min_perception = 2 WHERE id = 1;   -- Abandoned Mine
+UPDATE locations SET min_perception = 4 WHERE id = 2;   -- Whispering Grove
+UPDATE locations SET min_perception = 8 WHERE id = 3;   -- Sunken Crypt
+UPDATE locations SET min_perception = 4 WHERE id = 4;   -- Sacred Spring
