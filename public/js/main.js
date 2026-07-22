@@ -8,6 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btn-register').addEventListener('click', register);
     $('btn-logout').addEventListener('click', logout);
 
+    // Equip (backpack button) / unequip (click a filled slot).
+    $('screen-game').addEventListener('click', e => {
+        const eq = e.target.closest('[data-equip]');
+        if (eq) { equipItem(parseInt(eq.dataset.equip)); return; }
+        const un = e.target.closest('[data-unequip]');
+        if (un) { unequipSlot(un.dataset.unequip); }
+    });
+
     // Submit auth forms on Enter.
     document.querySelectorAll('.auth-form input').forEach(input =>
         input.addEventListener('keydown', e => {

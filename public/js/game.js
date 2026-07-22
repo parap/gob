@@ -29,6 +29,13 @@ function vitalBar(label, value, max) {
     </div>`;
 }
 
+// Format an item's bonuses like "+1 str, +10 hp".
+function bonusText(bonuses) {
+    const keys = Object.keys(bonuses || {});
+    if (!keys.length) return '';
+    return keys.map(k => `${bonuses[k] > 0 ? '+' : ''}${bonuses[k]} ${k}`).join(', ');
+}
+
 function renderCharacter() {
     const c = state.character;
     if (!c) return;
@@ -40,21 +47,49 @@ function renderCharacter() {
         vitalBar('Mana', v.mana, v.mana_max) +
         vitalBar('Courage', v.courage, v.courage_max);
 
-    $('char-stats').innerHTML = Object.entries(c.stats)
-        .map(([k, val]) => `<div class="stat"><span>${k.toUpperCase()}</span><b>${val}</b></div>`)
+    // Show effective stat, with the base in parentheses when gear changed it.
+    $('char-stats').innerHTML = Object.keys(c.stats)
+        .map(k => {
+            const base = c.stats[k], eff = c.stats_effective[k];
+            const extra = eff !== base ? ` <em>(${base})</em>` : '';
+            return `<div class="stat"><span>${k.toUpperCase()}</span><b>${eff}${extra}</b></div>`;
+        })
         .join('');
 
     $('char-skills').innerHTML = Object.entries(c.skills)
         .map(([k, val]) => `<div class="skill"><span>${k}</span><b>${val}</b></div>`)
         .join('');
 
+    // Equipped items: click a filled slot to unequip.
     $('char-equipment').innerHTML = Object.entries(c.equipment)
-        .map(([slot, item]) =>
-            `<div class="slot ${item ? 'filled' : 'empty'}">
-                <span>${slotLabel(slot)}</span>
-                <b>${item ? '#' + item : '—'}</b>
-            </div>`)
+        .map(([slot, item]) => item
+            ? `<div class="slot filled" data-unequip="${slot}" title="Click to unequip">
+                   <span>${slotLabel(slot)}</span><b>${item.name}</b>
+               </div>`
+            : `<div class="slot empty"><span>${slotLabel(slot)}</span><b>—</b></div>`)
         .join('');
+
+    // Backpack: click Equip to wear an item.
+    $('char-inventory').innerHTML = c.inventory.length
+        ? c.inventory.map(it => {
+            const b = bonusText(it.bonuses);
+            return `<div class="inv-item">
+                <span class="inv-name">${it.name}</span>
+                <span class="inv-bonus">${b}</span>
+                <button class="btn-mini" data-equip="${it.char_item_id}">Equip</button>
+            </div>`;
+        }).join('')
+        : '<p class="muted">Empty.</p>';
+}
+
+async function equipItem(charItemId) {
+    const { status, body } = await req('POST', '/items/equip', { char_item_id: charItemId });
+    if (status === 200) { state.character = body; renderCharacter(); }
+}
+
+async function unequipSlot(slot) {
+    const { status, body } = await req('POST', '/items/unequip', { slot });
+    if (status === 200) { state.character = body; renderCharacter(); }
 }
 
 async function loadSettlements() {

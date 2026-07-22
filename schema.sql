@@ -81,13 +81,47 @@ CREATE TABLE IF NOT EXISTS character_skills (
     FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- The equipment paperdoll: one row per slot. item_id is NULL when empty
--- and will reference a future `items` table once loot exists.
-CREATE TABLE IF NOT EXISTS character_equipment (
-    id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    character_id INT UNSIGNED NOT NULL,
-    slot         VARCHAR(32)  NOT NULL,
-    item_id      INT UNSIGNED NULL,
-    UNIQUE KEY uq_char_slot (character_id, slot),
-    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+-- Item definitions (templates). One row per kind of gear. slot_type says
+-- which equipment slot it fits ('ring'/'bracelet' are generic and go in the
+-- numbered slots). Bonuses are added to the character while equipped; they
+-- may be negative (cursed gear).
+CREATE TABLE IF NOT EXISTS items (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name          VARCHAR(64)  NOT NULL,
+    slot_type     VARCHAR(32)  NOT NULL,
+    weapon_skill  VARCHAR(32)  NULL,          -- for weapons: which skill it uses
+    rarity        VARCHAR(16)  NOT NULL DEFAULT 'common',
+    bonus_str     SMALLINT NOT NULL DEFAULT 0,
+    bonus_dex     SMALLINT NOT NULL DEFAULT 0,
+    bonus_con     SMALLINT NOT NULL DEFAULT 0,
+    bonus_int     SMALLINT NOT NULL DEFAULT 0,
+    bonus_wis     SMALLINT NOT NULL DEFAULT 0,
+    bonus_cha     SMALLINT NOT NULL DEFAULT 0,
+    bonus_hp      INT NOT NULL DEFAULT 0,
+    bonus_mana    INT NOT NULL DEFAULT 0,
+    bonus_courage INT NOT NULL DEFAULT 0,
+    description   VARCHAR(255) NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Item instances a character owns. equipped_slot is NULL when the item sits
+-- in the backpack, or the specific slot name when worn. The UNIQUE key means
+-- a slot can hold only one item (NULLs are exempt, so many can be unequipped).
+CREATE TABLE IF NOT EXISTS character_items (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    character_id  INT UNSIGNED NOT NULL,
+    item_id       INT UNSIGNED NOT NULL,
+    equipped_slot VARCHAR(32)  NULL,
+    acquired_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_char_equipped_slot (character_id, equipped_slot),
+    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id)      REFERENCES items(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- A few starter item definitions to build on.
+INSERT IGNORE INTO items
+    (id, name, slot_type, weapon_skill, rarity, bonus_str, bonus_dex, bonus_hp, description) VALUES
+    (1, 'Rusty Sword', 'weapon', 'sword', 'common', 1, 0,  0, 'A worn but serviceable blade.'),
+    (2, 'Short Bow',   'weapon', 'bow',   'common', 0, 1,  0, 'Favoured by scouts and skirmishers.'),
+    (3, 'Leather Cap', 'head',   NULL,    'common', 0, 0, 10, 'Basic protection for the head.'),
+    (4, 'Iron Ring',   'ring',   NULL,    'common', 1, 0,  0, 'A plain iron band.'),
+    (5, 'Oak Shield',  'shield', NULL,    'common', 0, 0, 20, 'Sturdy oak with an iron rim.');

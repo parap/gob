@@ -15,6 +15,9 @@ const EQUIPMENT_SLOTS = [
     'weapon', 'shield', 'banner',
 ];
 
+// Item ids (from the schema seed) every new character starts with.
+const STARTER_ITEMS = [1, 3]; // Rusty Sword, Leather Cap
+
 // Maps DB stat columns → the short keys the API/frontend use.
 const STAT_KEYS = [
     'strength'     => 'str',
@@ -48,11 +51,9 @@ function ensureCharacter(int $playerId, string $name): int
         $skillStmt->execute([$charId, $skill]);
     }
 
-    $slotStmt = $db->prepare(
-        'INSERT INTO character_equipment (character_id, slot) VALUES (?, ?)'
-    );
-    foreach (EQUIPMENT_SLOTS as $slot) {
-        $slotStmt->execute([$charId, $slot]);
+    // Starter gear in the backpack (item ids from the schema seed).
+    foreach (STARTER_ITEMS as $itemId) {
+        grantItem($charId, $itemId);
     }
 
     return $charId;
@@ -76,31 +77,55 @@ function handleMyCharacter(): void
         $skills[$row['skill']] = (int)$row['value'];
     }
 
-    $stmt = $db->prepare('SELECT slot, item_id FROM character_equipment WHERE character_id = ?');
-    $stmt->execute([$charId]);
-    $equipment = [];
-    foreach ($stmt->fetchAll() as $row) {
-        $equipment[$row['slot']] = $row['item_id'] !== null ? (int)$row['item_id'] : null;
+    // Split owned items into the equipped paperdoll and the backpack.
+    $owned = ownedItems($charId);
+
+    $equipment = array_fill_keys(EQUIPMENT_SLOTS, null);
+    $inventory = [];
+    foreach ($owned as $it) {
+        if ($it['equipped_slot'] !== null) {
+            $equipment[$it['equipped_slot']] = $it;
+        } else {
+            $inventory[] = $it;
+        }
     }
 
-    $stats = [];
+    // Base stats, plus effective stats = base + equipped bonuses.
+    $base      = [];
+    $effective = [];
     foreach (STAT_KEYS as $col => $key) {
-        $stats[$key] = (int)$c[$col];
+        $base[$key]      = (int)$c[$col];
+        $effective[$key] = $base[$key];
+    }
+    $vitals = [
+        'hp'          => (int)$c['hp'],
+        'hp_max'      => (int)$c['hp_max'],
+        'mana'        => (int)$c['mana'],
+        'mana_max'    => (int)$c['mana_max'],
+        'courage'     => (int)$c['courage'],
+        'courage_max' => (int)$c['courage_max'],
+    ];
+    foreach ($equipment as $it) {
+        if ($it === null) {
+            continue;
+        }
+        foreach ($it['bonuses'] as $k => $v) {
+            if (isset($effective[$k])) {
+                $effective[$k] += $v;               // stat bonus
+            } elseif (isset($vitals["{$k}_max"])) {
+                $vitals["{$k}_max"] += $v;           // hp/mana/courage add to max
+            }
+        }
     }
 
     json(200, [
-        'id'     => (int)$c['id'],
-        'name'   => $c['name'],
-        'vitals' => [
-            'hp'          => (int)$c['hp'],
-            'hp_max'      => (int)$c['hp_max'],
-            'mana'        => (int)$c['mana'],
-            'mana_max'    => (int)$c['mana_max'],
-            'courage'     => (int)$c['courage'],
-            'courage_max' => (int)$c['courage_max'],
-        ],
-        'stats'     => $stats,
-        'skills'    => $skills,
-        'equipment' => $equipment,
+        'id'              => (int)$c['id'],
+        'name'            => $c['name'],
+        'vitals'          => $vitals,
+        'stats'           => $base,
+        'stats_effective' => $effective,
+        'skills'          => $skills,
+        'equipment'       => $equipment,
+        'inventory'       => $inventory,
     ]);
 }
