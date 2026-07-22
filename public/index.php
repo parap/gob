@@ -41,6 +41,9 @@ if (str_starts_with($path, '/api/')) {
             'GET /api/locations'         => handleLocations(),
             'POST /api/locations/advance' => handleAdvance(),
             'GET /api/world'              => handleWorld(),
+            'POST /api/world/explore'     => handleProvinceExplore(),
+            'POST /api/world/travel'      => handleTravel(),
+            'POST /api/world/sites/advance' => handleSiteAdvance(),
             default                   => json(404, ['error' => 'Not found.']),
         };
     } catch (Throwable $e) {
