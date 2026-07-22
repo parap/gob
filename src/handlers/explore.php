@@ -81,22 +81,11 @@ function handleExplore(): void
     $loc = $stmt->fetch();
 
     if (!$loc) {
-        // Distinguish "nothing left" from "there's more, but you can't perceive it yet".
-        $stmt = $db->prepare(
-            'SELECT MIN(min_perception) FROM locations
-             WHERE id NOT IN (SELECT location_id FROM player_locations WHERE player_id = ?)'
-        );
-        $stmt->execute([$player['id']]);
-        $nextThreshold = $stmt->fetchColumn();
-
-        $message = $nextThreshold === null
-            ? 'You explored far and wide but found nothing new.'
-            : "You sense hidden places nearby, but your perception ($perception) is too low to find them.";
-
+        // Say nothing about what might be out there — don't leak undiscovered
+        // locations (whether it's perception-gated or simply nothing left).
         json(200, [
             'found'            => null,
-            'message'          => $message,
-            'perception'       => $perception,
+            'message'          => 'You explored the area but found nothing.',
             'cooldown_seconds' => EXPLORE_COOLDOWN_SECONDS,
             'locations'        => listPlayerLocations((int)$player['id']),
         ]);
