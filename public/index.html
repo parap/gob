@@ -49,15 +49,28 @@
 
 <!-- Game screen -->
 <main id="screen-game" class="screen hidden">
-    <div class="card">
-        <h2 id="settlement-name">—</h2>
-        <p class="muted">Terrain: <span id="settlement-terrain">—</span></p>
-        <table class="res-table">
-            <tr><th>Resource</th><th>Amount</th><th>Per hour</th></tr>
-            <tr><td>Gold</td>  <td id="g-gold">0</td>  <td id="rate-gold">0</td></tr>
-            <tr><td>Wood</td>  <td id="g-wood">0</td>  <td id="rate-wood">0</td></tr>
-            <tr><td>Stone</td> <td id="g-stone">0</td> <td id="rate-stone">0</td></tr>
-        </table>
+    <div class="game-grid">
+        <div class="card">
+            <h2 id="settlement-name">—</h2>
+            <p class="muted">Terrain: <span id="settlement-terrain">—</span></p>
+            <table class="res-table">
+                <tr><th>Resource</th><th>Amount</th><th>Per hour</th></tr>
+                <tr><td>Gold</td>  <td id="g-gold">0</td>  <td id="rate-gold">0</td></tr>
+                <tr><td>Wood</td>  <td id="g-wood">0</td>  <td id="rate-wood">0</td></tr>
+                <tr><td>Stone</td> <td id="g-stone">0</td> <td id="rate-stone">0</td></tr>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2 id="char-name">—</h2>
+            <div id="char-vitals" class="vitals"></div>
+            <h3>Stats</h3>
+            <div id="char-stats" class="stat-grid"></div>
+            <h3>Skills</h3>
+            <div id="char-skills" class="skill-list"></div>
+            <h3>Equipment</h3>
+            <div id="char-equipment" class="slot-grid"></div>
+        </div>
     </div>
 </main>
 

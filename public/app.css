@@ -91,3 +91,40 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .res-table th { color: var(--muted); font-weight: 600; }
 .res-table td:nth-child(2) { font-variant-numeric: tabular-nums; }
+
+/* Game layout: two cards side by side on wide screens */
+.game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.25rem;
+    width: 100%;
+    max-width: 900px;
+}
+#screen-game .card { max-width: none; }
+#screen-game h3 { margin: 1.25rem 0 0.5rem; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Vitals bars */
+.vitals { display: flex; flex-direction: column; gap: 0.5rem; }
+.vital { display: grid; grid-template-columns: 5rem 1fr auto; align-items: center; gap: 0.6rem; }
+.vital-label { color: var(--muted); font-size: 0.9rem; }
+.vital-track { height: 10px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+.vital-fill { display: block; height: 100%; }
+.vital-hp { background: #c0554e; }
+.vital-mana { background: #4e77c0; }
+.vital-courage { background: var(--accent); }
+.vital-num { font-variant-numeric: tabular-nums; font-size: 0.85rem; color: var(--muted); }
+
+/* Stats grid */
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.stat { display: flex; justify-content: space-between; padding: 0.45rem 0.6rem; background: var(--bg); border-radius: 6px; }
+.stat span { color: var(--muted); }
+
+/* Skills & equipment */
+.skill-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
+.skill { display: flex; justify-content: space-between; padding: 0.4rem 0.6rem; background: var(--bg); border-radius: 6px; text-transform: capitalize; }
+.skill span { color: var(--muted); }
+
+.slot-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; }
+.slot { display: flex; justify-content: space-between; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px dashed var(--line); }
+.slot span { color: var(--muted); font-size: 0.85rem; }
+.slot.filled { border-style: solid; border-color: var(--accent); }

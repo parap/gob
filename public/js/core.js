@@ -6,6 +6,7 @@ const state = {
     token: null,
     settlements: [],
     current: null,   // the currently viewed settlement
+    character: null,
     ticker: null,    // setInterval handle for the resource counter
 };
 

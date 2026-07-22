@@ -44,3 +44,50 @@ CREATE TABLE IF NOT EXISTS settlements (
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- The player's hero. Vitals and the six stats live here as columns.
+-- NB: full stat names are used because INT is a reserved SQL keyword;
+-- the API maps them to the short keys str/dex/con/int/wis/cha.
+CREATE TABLE IF NOT EXISTS characters (
+    id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    player_id    INT UNSIGNED NOT NULL UNIQUE,
+    name         VARCHAR(64) NOT NULL,
+
+    hp           INT NOT NULL DEFAULT 100,
+    hp_max       INT NOT NULL DEFAULT 100,
+    mana         INT NOT NULL DEFAULT 100,
+    mana_max     INT NOT NULL DEFAULT 100,
+    courage      INT NOT NULL DEFAULT 100,
+    courage_max  INT NOT NULL DEFAULT 100,
+
+    strength     SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    dexterity    SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    constitution SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    intelligence SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    wisdom       SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+    charisma     SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- One row per skill the character has trained. value starts at 1.
+CREATE TABLE IF NOT EXISTS character_skills (
+    id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    character_id INT UNSIGNED NOT NULL,
+    skill        VARCHAR(32)  NOT NULL,
+    value        INT UNSIGNED NOT NULL DEFAULT 1,
+    UNIQUE KEY uq_char_skill (character_id, skill),
+    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- The equipment paperdoll: one row per slot. item_id is NULL when empty
+-- and will reference a future `items` table once loot exists.
+CREATE TABLE IF NOT EXISTS character_equipment (
+    id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    character_id INT UNSIGNED NOT NULL,
+    slot         VARCHAR(32)  NOT NULL,
+    item_id      INT UNSIGNED NULL,
+    UNIQUE KEY uq_char_slot (character_id, slot),
+    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

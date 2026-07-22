@@ -51,6 +51,7 @@ function handleRegister(): void
     $playerId = (int)$db->lastInsertId();
 
     createStartingSettlement($playerId);
+    ensureCharacter($playerId, $username);
 
     $token = issueSession($playerId);
     json(201, ['id' => $playerId, 'username' => $username, 'token' => $token]);
