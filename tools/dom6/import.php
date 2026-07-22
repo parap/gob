@@ -65,10 +65,12 @@ function genericize(string $text): string
 {
     // Multi-word phrases first.
     $phrases = [
-        "Lakam Ha'"      => 'Jungle',
-        'Turan Usij'     => 'Ashen Cultist',
-        'Closed Council' => 'Grand Council',
-        'Teteo Inan'     => 'the Mother Goddess',
+        "Lakam Ha'"             => 'Jungle',
+        'Turan Usij'            => 'Ashen Cultist',
+        'Closed Council'        => 'Grand Council',
+        'Teteo Inan'            => 'the Mother Goddess',
+        'Celestial Bureaucracy' => 'the Imperial Court',
+        'Celestial Empire'      => 'the Eastern Empire',
     ];
     foreach ($phrases as $from => $to) $text = str_replace($from, $to, $text);
 
@@ -94,7 +96,14 @@ function genericize(string $text): string
         'Pythium'     => 'the Empire',  'Ermor'     => 'the old Empire',
         'Marignon'    => 'the Kingdom', 'Arcoscephale' => 'the old Kingdom',
         'Pangaea'     => 'the Wildlands', 'Erytheia' => 'the Coast',
-        'Gilead'      => 'the highlands',
+        'Gilead'      => 'the highlands', 'Machaka'  => 'the Spider Kingdom',
+        "R'lyeh"      => 'the Sunken City', "Rl'yeh"  => 'the Sunken City',
+        'Pelagia'     => 'the Sea Kingdom', 'Oceania' => 'the Ocean Realm',
+        'Bureaucracy' => 'Court',          'Ulm'     => 'the Iron Lands',
+        'Vanir'       => 'northmen',        'Patala'  => 'the Serpent Realm',
+        'Eriu'        => 'the Green Isle',  'Fomoria' => 'the Drowned Isles',
+        'Muuch'       => 'the Toad Lord',   'Nin'     => 'Temple Warden',
+        'Ind'         => 'the eastern lands', 'Ur'    => 'the First City',
     ];
     foreach ($words as $from => $to) {
         $text = preg_replace('/\b' . preg_quote($from, '/') . '\b/', $to, $text);
