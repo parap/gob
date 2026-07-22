@@ -226,3 +226,8 @@ input:focus { outline: none; border-color: var(--accent); }
 .loc-reward { color: var(--accent); font-size: 0.75rem; }
 .loc-cleared { color: #a7d488; font-size: 0.85rem; font-weight: 600; }
 .loc-action { display: flex; align-items: center; gap: 0.5rem; }
+.location.current { border-left-color: var(--accent); }
+
+/* Exploration sweep progress bar */
+.explore-progress { height: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 0.5rem 0 0.75rem; }
+.explore-fill { height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }

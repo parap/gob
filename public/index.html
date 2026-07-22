@@ -107,12 +107,17 @@
 
         <div class="game-panel" data-panel="exploration">
             <div class="card">
-                <h2>Exploration</h2>
+                <h2 id="province-name">—</h2>
+                <p class="muted"><span id="province-terrain">—</span> · Lv <span id="province-level">1</span> · explored <span id="explore-pct">0%</span></p>
+                <div class="explore-progress"><div id="explore-bar" class="explore-fill"></div></div>
                 <div class="loot-bar">
                     <button id="btn-explore" class="btn">Explore</button>
                     <span id="explore-result" class="muted"></span>
                 </div>
-                <div id="location-list" class="location-list"><p class="muted">Explore to discover sites and dungeons.</p></div>
+                <h3>Discovered here</h3>
+                <div id="site-list" class="location-list"><p class="muted">Explore to uncover sites.</p></div>
+                <h3>Provinces</h3>
+                <div id="province-list" class="location-list"></div>
             </div>
         </div>
     </div>

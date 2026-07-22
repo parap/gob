@@ -23,9 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.id === 'btn-loot') { searchLoot(); return; }
         const fg = e.target.closest('[data-fight]');
         if (fg) { fight(parseInt(fg.dataset.fight)); return; }
-        if (e.target.id === 'btn-explore') { explore(); return; }
-        const av = e.target.closest('[data-advance]');
-        if (av) { advance(parseInt(av.dataset.advance)); }
+        if (e.target.id === 'btn-explore') { exploreWorld(); return; }
+        const dv = e.target.closest('[data-delve]');
+        if (dv) { delveSite(parseInt(dv.dataset.delve)); return; }
+        const tv = e.target.closest('[data-travel]');
+        if (tv) { travelTo(parseInt(tv.dataset.travel)); }
     });
 
     // Submit auth forms on Enter.

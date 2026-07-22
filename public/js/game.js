@@ -14,7 +14,7 @@ async function enterGame() {
     $('topbar-username').textContent = state.username;
     showScreen('game');
     switchGamePanel('settlement');
-    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadLocations()]);
+    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadWorld()]);
     startTicker();
 }
 
@@ -242,40 +242,109 @@ function startCooldown(btnId, label, seconds) {
 }
 const startLootCooldown = (s) => startCooldown('btn-loot', 'Search for loot', s);
 
-async function loadLocations() {
-    const { status, body } = await req('GET', '/locations');
-    if (status !== 200 || !Array.isArray(body)) return;
-    state.locations = body;
-    renderLocations();
+async function loadWorld() {
+    const { status, body } = await req('GET', '/world');
+    if (status !== 200) return;
+    state.world = body;
+    renderWorld();
 }
 
-async function explore() {
-    const { status, body } = await req('POST', '/explore');
+function rewardText(reward) {
+    const parts = [];
+    if (reward.gold_rate) parts.push(`+${reward.gold_rate} gold/hr`);
+    if (reward.wood_rate) parts.push(`+${reward.wood_rate} wood/hr`);
+    if (reward.stone_rate) parts.push(`+${reward.stone_rate} stone/hr`);
+    if (reward.regen) parts.push(`+${reward.regen} regen/min`);
+    if (reward.gold) parts.push(`${reward.gold}g`);
+    if (reward.item_id) parts.push('loot');
+    return parts.join(', ');
+}
+
+function renderWorld() {
+    const w = state.world;
+    if (!w) return;
+    const cur = (w.provinces || []).find(p => p.is_current) || w.provinces[0];
+    if (!cur) return;
+
+    $('province-name').textContent = cur.name;
+    $('province-terrain').textContent = cur.terrain;
+    $('province-level').textContent = cur.level;
+    $('explore-bar').style.width = cur.explored_pct + '%';
+    $('explore-pct').textContent = Math.floor(cur.explored_pct) + '%';
+
+    // Sites discovered in the current province.
+    const sites = (w.sites && w.sites[cur.id]) || [];
+    const actionable = sites.filter(s => s.type !== 'road');
+    $('site-list').innerHTML = actionable.length
+        ? actionable.map(s => {
+            const rw = rewardText(s.reward);
+            const action = s.state === 'cleared'
+                ? `<span class="loc-cleared">Cleared ✓</span>`
+                : `<button class="btn-mini" data-delve="${s.id}">Delve</button>`;
+            return `<div class="location loc-${s.type} ${s.state}">
+                <div class="loc-info">
+                    <span class="loc-name">${esc(s.name)} <em>${s.type}</em></span>
+                    <span class="loc-progress">${s.progress}/${s.total_stages} stages${rw ? ' · ' + rw : ''}</span>
+                </div>
+                <div class="loc-action">${action}</div>
+            </div>`;
+        }).join('')
+        : '<p class="muted">Nothing uncovered here yet — keep exploring.</p>';
+
+    // The province map: current + travel to others.
+    $('province-list').innerHTML = (w.provinces || []).map(p => {
+        const tag = p.is_current
+            ? `<span class="loc-cleared">You are here</span>`
+            : `<button class="btn-mini btn-sell" data-travel="${p.id}">Travel</button>`;
+        return `<div class="location ${p.is_current ? 'current' : ''}">
+            <div class="loc-info">
+                <span class="loc-name">${esc(p.name)} <em>${p.terrain} · Lv${p.level}${p.is_home ? ' · home' : ''}</em></span>
+                <span class="loc-progress">${Math.floor(p.explored_pct)}% explored${p.is_current ? '' : ' · REMOTE — TO BE TRAVELLED'}</span>
+            </div>
+            <div class="loc-action">${tag}</div>
+        </div>`;
+    }).join('');
+}
+
+async function exploreWorld() {
+    const { status, body } = await req('POST', '/world/explore');
     if (status === 429) {
         $('explore-result').textContent = body.error;
         startCooldown('btn-explore', 'Explore', body.retry_after);
         return;
     }
     if (status !== 200) return;
-    $('explore-result').textContent = body.found
-        ? `Discovered a ${body.found.type}: ${body.found.name} (Lv${body.found.level})!`
-        : body.message;
-    state.locations = body.locations;
-    renderLocations();
+
+    setCharacter(body.character);
+    renderCharacter();
+    await Promise.all([loadWorld(), loadSettlements()]);
+
+    // Build a one-line summary of this sweep.
+    const bits = [];
+    (body.found || []).forEach(f => bits.push(`${f.type === 'road' ? '🛣' : ''}${f.name}`));
+    if (body.new_province) bits.push(`→ new province: ${body.new_province.name} (${body.new_province.terrain})`);
+    if (body.raid) {
+        const r = body.raid;
+        bits.push(`⚔ raid by ${r.monster}: ${r.combat.outcome}${r.lost_site ? ` (lost ${r.lost_site}!)` : ''}`);
+        renderCombat(r.combat);
+    }
+    $('explore-result').textContent = bits.length ? bits.join(' · ') : 'Found nothing this time.';
     startCooldown('btn-explore', 'Explore', body.cooldown_seconds);
 }
 
-async function advance(playerLocationId) {
-    const { status, body } = await req('POST', '/locations/advance', { player_location_id: playerLocationId });
+async function travelTo(provinceId) {
+    const { status } = await req('POST', '/world/travel', { province_id: provinceId });
+    if (status === 200) { $('explore-result').textContent = ''; await loadWorld(); }
+}
+
+async function delveSite(siteId) {
+    const { status, body } = await req('POST', '/world/sites/advance', { site_id: siteId });
     if (status !== 200) return;
     setCharacter(body.character);
     renderCharacter();
-    state.locations = body.locations;
-    renderLocations();
-    await loadSettlements();
-    renderCombat(body.combat);   // detailed log (visible on the Adventure tab)
+    await Promise.all([loadWorld(), loadSettlements()]);
+    renderCombat(body.combat);
 
-    // Inline summary so the result is visible without leaving the Exploration tab.
     const cmb = body.combat;
     let msg = `${cmb.monster.name}: ${cmb.outcome === 'win' ? 'Victory' : 'Defeat'} — ${cmb.hero_hp_after} hp`;
     if (body.cleared) {
@@ -286,42 +355,11 @@ async function advance(playerLocationId) {
             if (parts.length) bits.push(parts.join(', '));
         }
         if (r.regen) bits.push(`+${r.regen} regen/min`);
+        if (r.gold) bits.push(`+${r.gold}g`);
         if (r.item) bits.push(`found ${r.item}`);
-        msg = `Cleared ${body.location_name}! ${bits.join(' · ')}`;
+        msg = `Cleared ${esc(body.site.name)}! ${bits.join(' · ')}`;
     }
     $('explore-result').textContent = msg;
-}
-
-function rateRewardText(reward) {
-    const parts = [];
-    if (reward.gold_rate) parts.push(`+${reward.gold_rate} gold/hr`);
-    if (reward.wood_rate) parts.push(`+${reward.wood_rate} wood/hr`);
-    if (reward.stone_rate) parts.push(`+${reward.stone_rate} stone/hr`);
-    if (reward.regen) parts.push(`+${reward.regen} regen/min`);
-    return parts.join(', ');
-}
-
-function renderLocations() {
-    if (!state.locations.length) {
-        $('location-list').innerHTML = '<p class="muted">Explore to discover sites and dungeons.</p>';
-        return;
-    }
-    $('location-list').innerHTML = state.locations.map(l => {
-        const reward = l.type === 'site' && rateRewardText(l.reward)
-            ? `<span class="loc-reward">${rateRewardText(l.reward)} when cleared</span>` : '';
-        const body = l.state === 'cleared'
-            ? `<span class="loc-cleared">Cleared ✓</span>`
-            : `<span class="loc-next">Next: ${l.next_monster ?? '—'}</span>
-               <button class="btn-mini" data-advance="${l.id}">Delve</button>`;
-        return `<div class="location loc-${l.type} ${l.state}">
-            <div class="loc-info">
-                <span class="loc-name">${l.name} <em>${l.type} · Lv${l.level}</em></span>
-                <span class="loc-progress">${l.progress}/${l.total_stages} stages</span>
-                ${reward}
-            </div>
-            <div class="loc-action">${body}</div>
-        </div>`;
-    }).join('');
 }
 
 async function loadSettlements() {
