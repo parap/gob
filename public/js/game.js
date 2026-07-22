@@ -301,7 +301,7 @@ function renderWorld() {
                 ? `<span class="loc-cleared">Cleared ✓</span>`
                 : `<button class="btn-mini" data-delve="${s.id}">Delve</button>`;
             const next = s.state === 'found' && s.next_monster
-                ? `<span class="loc-next">Guarded by ${esc(s.next_monster)}</span>` : '';
+                ? `<span class="loc-next">Guarded by ${esc(s.next_monster)}${infoIcon(s.next_monster_desc)}</span>` : '';
             const typeTag = s.type === 'minor' ? '' : ` <em>${s.type}</em>`;
             return `<div class="location loc-${s.type} ${s.state}">
                 <div class="loc-info">

@@ -187,12 +187,16 @@ function worldSitePayload(array $s): array
 {
     $stages = $s['stages_json'] ? json_decode($s['stages_json'], true) : [];
 
-    // Name of the monster guarding the next stage (for sites still to fight).
+    // The monster guarding the next stage (for sites still to fight).
     $next = null;
+    $nextDesc = null;
     if ($s['state'] === 'found' && isset($stages[(int)$s['progress']])) {
-        $st = db()->prepare('SELECT name FROM monsters WHERE id = ?');
+        $st = db()->prepare('SELECT name, description FROM monsters WHERE id = ?');
         $st->execute([(int)$stages[(int)$s['progress']]]);
-        $next = $st->fetchColumn() ?: null;
+        if ($row = $st->fetch()) {
+            $next     = $row['name'];
+            $nextDesc = $row['description'];
+        }
     }
 
     return [
@@ -203,6 +207,7 @@ function worldSitePayload(array $s): array
         'progress'     => (int)$s['progress'],
         'total_stages' => count($stages),
         'next_monster' => $next,
+        'next_monster_desc' => $nextDesc,
         'road_terrain' => $s['road_terrain'],
         'reward'       => [
             'gold'       => (int)$s['reward_gold'],
