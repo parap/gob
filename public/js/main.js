@@ -13,7 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const eq = e.target.closest('[data-equip]');
         if (eq) { equipItem(parseInt(eq.dataset.equip)); return; }
         const un = e.target.closest('[data-unequip]');
-        if (un) { unequipSlot(un.dataset.unequip); }
+        if (un) { unequipSlot(un.dataset.unequip); return; }
+        if (e.target.id === 'btn-loot') { searchLoot(); }
     });
 
     // Submit auth forms on Enter.

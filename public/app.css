@@ -131,6 +131,11 @@ input:focus { outline: none; border-color: var(--accent); }
 .slot.filled:hover { background: var(--bg); }
 .stat b em { color: var(--muted); font-style: normal; font-size: 0.85em; }
 
+/* Loot */
+.loot-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+.loot-bar .btn { padding: 0.5rem 0.9rem; }
+#btn-loot:disabled { opacity: 0.5; cursor: default; }
+
 /* Backpack */
 .inv-list { display: flex; flex-direction: column; gap: 0.4rem; }
 .inv-item { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 0.6rem; padding: 0.4rem 0.6rem; background: var(--bg); border-radius: 6px; }

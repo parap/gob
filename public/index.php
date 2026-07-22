@@ -8,6 +8,7 @@ require dirname(__DIR__) . '/src/handlers/auth.php';
 require dirname(__DIR__) . '/src/handlers/settlements.php';
 require dirname(__DIR__) . '/src/handlers/character.php';
 require dirname(__DIR__) . '/src/handlers/items.php';
+require dirname(__DIR__) . '/src/handlers/loot.php';
 
 $path   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -28,6 +29,7 @@ if (str_starts_with($path, '/api/')) {
             'GET /api/character/me'   => handleMyCharacter(),
             'POST /api/items/equip'   => handleEquip(),
             'POST /api/items/unequip' => handleUnequip(),
+            'POST /api/loot/search'   => handleLootSearch(),
             default                   => json(404, ['error' => 'Not found.']),
         };
     } catch (Throwable $e) {

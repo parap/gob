@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS characters (
     wisdom       SMALLINT UNSIGNED NOT NULL DEFAULT 1,
     charisma     SMALLINT UNSIGNED NOT NULL DEFAULT 1,
 
+    last_loot_at DATETIME NULL,          -- cooldown marker for loot searches
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -125,3 +126,18 @@ INSERT IGNORE INTO items
     (3, 'Leather Cap', 'head',   NULL,    'common', 0, 0, 10, 'Basic protection for the head.'),
     (4, 'Iron Ring',   'ring',   NULL,    'common', 1, 0,  0, 'A plain iron band.'),
     (5, 'Oak Shield',  'shield', NULL,    'common', 0, 0, 20, 'Sturdy oak with an iron rim.');
+
+-- More gear across every slot and rarity, for the loot table to draw from.
+INSERT IGNORE INTO items
+    (id, name, slot_type, weapon_skill, rarity, bonus_str, bonus_dex, bonus_int, bonus_wis, bonus_cha, bonus_hp, bonus_mana, bonus_courage, description) VALUES
+    (6,  'Steel Axe',       'weapon',    'axe',  'uncommon', 2, 0, 0, 0, 0,  0,  0,  0, 'A heavy, well-balanced axe.'),
+    (7,  'Hunting Bow',     'weapon',    'bow',  'uncommon', 0, 2, 0, 0, 0,  0,  0,  0, 'A finely strung longbow.'),
+    (8,  'Silver Ring',     'ring',      NULL,   'uncommon', 0, 0, 1, 1, 0,  0, 10,  0, 'A ring humming with faint magic.'),
+    (9,  'Chainmail',       'platemail', NULL,   'uncommon', 0, 0, 0, 0, 0, 30,  0,  0, 'Interlocking steel rings.'),
+    (10, 'Runed Gauntlets', 'gauntlets', NULL,   'uncommon', 1, 0, 0, 0, 0, 10,  0,  0, 'Gauntlets etched with runes.'),
+    (11, 'Leather Boots',   'foot',      NULL,   'common',   0, 1, 0, 0, 0,  5,  0,  0, 'Supple, quiet boots.'),
+    (12, 'Padded Sleeves',  'sleeves',   NULL,   'common',   0, 0, 0, 0, 0,  8,  0,  0, 'Quilted arm protection.'),
+    (13, 'Traveler Pants',  'pants',     NULL,   'common',   0, 0, 0, 0, 0,  8,  0,  0, 'Durable road-worn trousers.'),
+    (14, 'Scholar Glasses', 'glasses',   NULL,   'rare',     0, 0, 2, 1, 0,  0, 20,  0, 'Lenses that sharpen the mind.'),
+    (15, 'War Banner',      'banner',    NULL,   'rare',     0, 0, 0, 0, 1,  0,  0, 15, 'Rallies the spirit in battle.'),
+    (16, 'Oak Bracer',      'bracelet',  NULL,   'common',   0, 0, 0, 0, 0,  6,  0,  0, 'A simple wooden bracer.');

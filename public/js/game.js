@@ -92,6 +92,33 @@ async function unequipSlot(slot) {
     if (status === 200) { state.character = body; renderCharacter(); }
 }
 
+async function searchLoot() {
+    const { status, body } = await req('POST', '/loot/search');
+    if (status === 200) {
+        const f = body.found;
+        $('loot-result').textContent = `Found: ${f.name} (${f.rarity})`;
+        await loadCharacter();            // refresh backpack
+        startLootCooldown(body.cooldown_seconds);
+    } else if (status === 429) {
+        $('loot-result').textContent = body.error;
+        startLootCooldown(body.retry_after);
+    }
+}
+
+// Disable the button and count down; re-enable when the cooldown ends.
+function startLootCooldown(seconds) {
+    const btn = $('btn-loot');
+    let left = seconds;
+    const tick = () => {
+        if (left <= 0) { btn.disabled = false; btn.textContent = 'Search for loot'; return; }
+        btn.disabled = true;
+        btn.textContent = `Resting (${left}s)`;
+        left--;
+        setTimeout(tick, 1000);
+    };
+    tick();
+}
+
 async function loadSettlements() {
     const { status, body } = await req('GET', '/settlements/me');
     if (status === 401) { logout(); return; }
