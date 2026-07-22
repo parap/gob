@@ -58,33 +58,67 @@ function itemDescr(string $site, string $name): string
 function clampi($v, int $lo, int $hi): int { return max($lo, min($hi, (int)round((float)$v))); }
 function num($v): int { return is_numeric($v) ? (int)$v : 0; }
 
-// Genericize distinctive Dominions/Illwinter proper nouns in a name into
-// plain fantasy terms, keeping the rest of the name intact.
-function genericizeName(string $name): string
+// Swap distinctive Dominions/Illwinter proper nouns (in names OR descriptions)
+// for plain fantasy terms, leaving ordinary words intact. Covers the prominent
+// terms; a few obscure proper names may remain.
+function genericize(string $text): string
 {
     // Multi-word phrases first.
     $phrases = [
         "Lakam Ha'"      => 'Jungle',
-        'Turan Usij'     => 'Fire Cultist',
+        'Turan Usij'     => 'Ashen Cultist',
         'Closed Council' => 'Grand Council',
+        'Teteo Inan'     => 'the Mother Goddess',
     ];
-    foreach ($phrases as $from => $to) $name = str_replace($from, $to, $name);
+    foreach ($phrases as $from => $to) $text = str_replace($from, $to, $text);
 
-    // Whole-word substitutions.
+    // Whole-word substitutions (plurals listed before singulars).
     $words = [
-        'Sepulchre' => 'Tomb',        'Woodhenge' => 'Wildwood',
-        'Anansi'    => 'Spider Lord', 'Limitane'  => 'Legion',
-        'Erytheian' => 'Coastal',     'Humanbred' => 'Halfblood',
-        'Nemedian'  => 'Highland',    'Nagini'    => 'Serpent Maiden',
-        'Nin'       => 'Acolyte',     'Fianna'    => 'Clan Warrior',
-        'Aphroi'    => 'Tide',        'Olm'       => 'Cave',
-        'Gileadite' => 'Zealot',      'Teotl'     => 'God',
-        'Neter'     => 'God',
+        // terms that also appear in the renamed monster names
+        'Sepulchre' => 'Tomb',          'Woodhenge' => 'Wildwood',
+        'Anansis'   => 'Spider Lords',  'Anansi'    => 'Spider Lord',
+        'Limitane'  => 'Legion',        'Erytheian' => 'Coastal',
+        'Humanbreds'=> 'Beastborn',     'Humanbred' => 'Beastborn',
+        'Nemedian'  => 'Highland',      'Naginis'   => 'Serpent Maidens',
+        'Nagini'    => 'Serpent Maiden','Fianna'    => 'Clan Warriors',
+        'Aphroi'    => 'Tide',          'Gileadite' => 'Zealot',
+        'Teotls'    => 'Gods',          'Teotl'     => 'God',
+        'Neters'    => 'Gods',          'Neter'     => 'God',
+        // lore proper nouns that show up in descriptions
+        'Pantokrator' => 'Almighty',    'Eldregate' => 'the cathedral city',
+        'Abysian'     => 'ashland',     'Abysia'    => 'the Ashlands',
+        'Agartha'     => 'the deep caves', 'Jotunheim' => 'the frozen north',
+        'Atlantians'  => 'deep folk',   'Asphodel'  => 'the deadwood',
+        'Avalon'      => 'the Isles',   'Rephaim'   => 'giants',
+        'Xibalba'     => 'the underworld', 'Mictlan' => 'the Sun Kingdom',
+        'Pythium'     => 'the Empire',  'Ermor'     => 'the old Empire',
+        'Marignon'    => 'the Kingdom', 'Arcoscephale' => 'the old Kingdom',
+        'Pangaea'     => 'the Wildlands', 'Erytheia' => 'the Coast',
+        'Gilead'      => 'the highlands',
     ];
     foreach ($words as $from => $to) {
-        $name = preg_replace('/\b' . preg_quote($from, '/') . '\b/', $to, $name);
+        $text = preg_replace('/\b' . preg_quote($from, '/') . '\b/', $to, $text);
     }
-    return $name;
+    return $text;
+}
+
+// Monster display name: a hand-picked creative name where one fits, else the
+// generic substitution above.
+function monsterName(string $orig): string
+{
+    static $overrides = [
+        'Knight of the Unholy Sepulchre' => 'Knight of the Unhallowed Tomb',
+        'Turan Usij'                     => 'Ashen Cultist',
+        'Humanbred'                      => 'Beastborn',
+        'Nin'                            => 'Temple Warden',
+        'Teotl of War'                   => 'War Idol',
+        'Neter of the Sun'               => 'Solar Godling',
+        'Leader of the Closed Council'   => 'High Councilor',
+        'Aphroi Lord'                    => 'Tide Lord',
+        'Olm Sage'                       => 'Deepcave Sage',
+        'Nagini'                         => 'Serpent Maiden',
+    ];
+    return $overrides[$orig] ?? genericize($orig);
 }
 
 // ---------- monsters ----------
@@ -127,7 +161,7 @@ function buildMonsters(array $units, string $site, int $count): array
         $gold = clampi($gold, 5, 500);
         $out[] = [
             'id'          => $id++,
-            'name'        => genericizeName($u['name']),
+            'name'        => monsterName($u['name']),
             'level'       => clampi($hp / 15, 1, 25),
             'hp'          => $hp,
             'attack'      => $att,
@@ -137,7 +171,7 @@ function buildMonsters(array $units, string $site, int $count): array
             'reward_gold' => $gold,
             'loot_item_id'=> null,
             'loot_chance' => 0,
-            'description' => unitDescr($site, $u['id']),
+            'description' => genericize(unitDescr($site, $u['id'])),
         ];
     }
     return $out;
@@ -254,7 +288,7 @@ function buildItems(array $items, array $weaponsById, array $armorsById, string 
         $bz = $m['bonuses'];
         $out[] = [
             'id'                => $id++,
-            'name'              => $m['name'],
+            'name'              => genericize($m['name']),
             'slot_type'         => $m['slot'],
             'weapon_skill'      => $m['weapon_skill'],
             'rarity'            => $m['rarity'],
@@ -275,7 +309,7 @@ function buildItems(array $items, array $weaponsById, array $armorsById, string 
             'kind'              => 'gear',
             'heal_hp'           => 0,
             'sell_value'        => sellByRarity($m['rarity']),
-            'description'       => itemDescr($site, $m['name']),
+            'description'       => genericize(itemDescr($site, $m['name'])),
         ];
     }
     return $out;
