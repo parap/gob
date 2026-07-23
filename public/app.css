@@ -227,6 +227,7 @@ input:focus { outline: none; border-color: var(--accent); }
 .loc-cleared { color: #a7d488; font-size: 0.85rem; font-weight: 600; }
 .loc-action { display: flex; align-items: center; gap: 0.5rem; }
 .location.current { border-left-color: var(--accent); }
+.location.in-progress { border-left-color: var(--accent); background: rgba(201, 162, 75, 0.10); }
 
 /* Exploration sweep progress bar */
 .explore-progress { height: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 0.5rem 0 0.75rem; }

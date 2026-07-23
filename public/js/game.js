@@ -289,21 +289,23 @@ function renderWorld() {
     $('explore-pct').textContent = exploreLabel(cur.explored_pct);
 
     // Sites discovered in the current province.
+    // In-progress (partly delved) on top, then fresh finds, then cleared.
+    const rank = s => s.state === 'cleared' ? 2 : (s.progress > 0 ? 0 : 1);
     const sites = (w.sites && w.sites[cur.id]) || [];
-    const actionable = sites.filter(s => s.type !== 'road').sort((a, b) => {
-        const ac = a.state === 'cleared' ? 1 : 0;
-        const bc = b.state === 'cleared' ? 1 : 0;
-        return ac !== bc ? ac - bc : b.id - a.id;   // uncleared first, then newest
-    });
+    const actionable = sites.filter(s => s.type !== 'road')
+        .sort((a, b) => rank(a) - rank(b) || b.id - a.id);
     $('site-list').innerHTML = actionable.length
         ? actionable.map(s => {
             const action = s.state === 'cleared'
                 ? `<span class="loc-cleared">Cleared ✓</span>`
                 : `<button class="btn-mini" data-delve="${s.id}">Delve</button>`;
+            // Show the current level for multi-stage sites in progress (no total).
+            const level = (s.total_stages > 1 && s.state === 'found') ? `Level ${s.progress + 1} · ` : '';
             const next = s.state === 'found' && s.next_monster
-                ? `<span class="loc-next">Guarded by ${esc(s.next_monster)}${infoIcon(s.next_monster_desc)}</span>` : '';
+                ? `<span class="loc-next">${level}Guarded by ${esc(s.next_monster)}${infoIcon(s.next_monster_desc)}</span>` : '';
             const typeTag = s.type === 'minor' ? '' : ` <em>${s.type}</em>`;
-            return `<div class="location loc-${s.type} ${s.state}">
+            const inProg = (s.progress > 0 && s.state === 'found') ? ' in-progress' : '';
+            return `<div class="location loc-${s.type} ${s.state}${inProg}">
                 <div class="loc-info">
                     <span class="loc-name">${esc(s.name)}${typeTag}</span>
                     ${next}
