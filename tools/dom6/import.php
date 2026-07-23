@@ -96,6 +96,7 @@ function genericize(string $text): string
         'Pythium'     => 'the Empire',  'Ermor'     => 'the old Empire',
         'Marignon'    => 'the Kingdom', 'Arcoscephale' => 'the old Kingdom',
         'Pangaea'     => 'the Wildlands', 'Erytheia' => 'the Coast',
+        'Procas'      => 'Warlord',       'Calius'   => 'Aldric',
         'Gilead'      => 'the highlands', 'Machaka'  => 'the Spider Kingdom',
         "R'lyeh"      => 'the Sunken City', "Rl'yeh"  => 'the Sunken City',
         'Pelagia'     => 'the Sea Kingdom', 'Oceania' => 'the Ocean Realm',

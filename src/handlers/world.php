@@ -321,6 +321,11 @@ function applySiteReward(array $player, int $charId, array $s): array
             $summary['items'][] = itemName($id);
         }
     }
+    // Dungeons have a shot at an epic on top.
+    if ($s['type'] === 'dungeon' && random_int(1, 100) <= 25 && ($id = randomItemId('epic'))) {
+        grantItem($charId, $id);
+        $summary['items'][] = itemName($id);
+    }
     return $summary;
 }
 
