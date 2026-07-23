@@ -58,7 +58,7 @@ async function fight(monsterId) {
     renderCombat(body);
 }
 
-function renderCombat(r) {
+function renderCombat(r, targetId = 'combat-log') {
     const rw = r.rewards;
     const rewardBits = [];
     if (rw.gold) rewardBits.push(`+${rw.gold} gold`);
@@ -76,7 +76,7 @@ function renderCombat(r) {
         return `<div class="combat-line ${e.actor}">R${e.round}: ${who} hit ${tgt} for ${e.damage} (${tgt} ${e.target_hp} hp)</div>`;
     }).join('');
 
-    $('combat-log').innerHTML = head + lines;
+    $(targetId).innerHTML = head + lines;
 }
 
 async function loadCharacter() {
@@ -381,7 +381,7 @@ async function exploreWorld() {
         }
         if (body.raid) {
             const r = body.raid;
-            renderCombat(r.combat);
+            renderCombat(r.combat, 'explore-log');
             res.insertAdjacentHTML('beforeend', `<div class="find-line">⚔ raid by ${esc(r.monster)}: ${r.combat.outcome}${r.lost_site ? ` (lost ${esc(r.lost_site)}!)` : ''}</div>`);
         }
         if (!(body.found || []).length && !body.new_province && !body.raid) {
@@ -401,10 +401,9 @@ async function delveSite(siteId) {
     setCharacter(body.character);
     renderCharacter();
     await Promise.all([loadWorld(), loadSettlements()]);
-    renderCombat(body.combat);
 
-    const cmb = body.combat;
-    let msg = `${cmb.monster.name}: ${cmb.outcome === 'win' ? 'Victory' : 'Defeat'} — ${cmb.hero_hp_after} hp`;
+    // Full battle log + loot, right here on the Exploration tab.
+    renderCombat(body.combat, 'explore-log');
     if (body.cleared) {
         const r = body.completion || {};
         const bits = [];
@@ -415,9 +414,10 @@ async function delveSite(siteId) {
         if (r.regen) bits.push(`+${r.regen} regen/min`);
         if (r.gold) bits.push(`+${r.gold}g`);
         if (r.item) bits.push(`found ${r.item}`);
-        msg = `Cleared ${esc(body.site.name)}! ${bits.join(' · ')}`;
+        $('explore-log').insertAdjacentHTML('beforeend',
+            `<div class="combat-head win">Cleared ${esc(body.site.name)}!${bits.length ? ' ' + bits.join(' · ') : ''}</div>`);
     }
-    $('explore-result').textContent = msg;
+    $('explore-result').textContent = '';
 }
 
 async function loadSettlements() {
