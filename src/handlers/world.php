@@ -285,9 +285,16 @@ function applyBoon(array $player, int $charId, array $s, int $sign): void
     }
 }
 
+// Loot chance (%) and rarity for clearing each site type.
+const SITE_LOOT = [
+    'minor'   => [40, 'common'],
+    'boon'    => [60, 'uncommon'],
+    'dungeon' => [80, 'rare'],
+];
+
 function applySiteReward(array $player, int $charId, array $s): array
 {
-    $summary = ['gold' => 0, 'rate' => null, 'regen' => 0, 'item' => null];
+    $summary = ['gold' => 0, 'rate' => null, 'regen' => 0, 'items' => []];
     if ((int)$s['reward_gold'] > 0) {
         addGold($player, (int)$s['reward_gold']);
         $summary['gold'] = (int)$s['reward_gold'];
@@ -301,9 +308,18 @@ function applySiteReward(array $player, int $charId, array $s): array
         ];
     }
     if ((int)$s['bonus_regen']) $summary['regen'] = (int)$s['bonus_regen'];
+
+    // Fixed reward item (dungeons carry one from generation).
     if ($s['reward_item_id'] !== null) {
         grantItem($charId, (int)$s['reward_item_id']);
-        $summary['item'] = itemName((int)$s['reward_item_id']);
+        $summary['items'][] = itemName((int)$s['reward_item_id']);
+    }
+    // Chance-based loot for clearing the site.
+    if ($loot = SITE_LOOT[$s['type']] ?? null) {
+        if (random_int(1, 100) <= $loot[0] && ($id = randomItemId($loot[1]))) {
+            grantItem($charId, $id);
+            $summary['items'][] = itemName($id);
+        }
     }
     return $summary;
 }

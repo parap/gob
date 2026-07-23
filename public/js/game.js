@@ -413,7 +413,7 @@ async function delveSite(siteId) {
         }
         if (r.regen) bits.push(`+${r.regen} regen/min`);
         if (r.gold) bits.push(`+${r.gold}g`);
-        if (r.item) bits.push(`found ${r.item}`);
+        if (r.items && r.items.length) bits.push(`found ${esc(r.items.join(', '))}`);
         $('explore-log').insertAdjacentHTML('beforeend',
             `<div class="combat-head win">Cleared ${esc(body.site.name)}!${bits.length ? ' ' + bits.join(' · ') : ''}</div>`);
     }
