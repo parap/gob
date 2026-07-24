@@ -171,15 +171,77 @@ penalty/heal tuning is open.)
 
 ---
 
-## 5. Language learning
+## 5. Language & skill training
 
-- Language is trained by **contact / help**, NEVER by fighting (fighting trains
-  combat skills only).
-- Likely sources (to finalize later):
-  1. Rare **phrasebook / captured writings** loot → jump-start first words.
-  2. Contact with a race once Hostility is low enough (they'll teach words).
-  3. Possibly a neutral intermediary (ideas.txt §2 ladder: animals → wolves → …).
-- First concrete payoff of language = **Interrogate** (§4), long before "be friends".
+Language is trained by **contact / tuition**, NEVER by fighting (fighting trains
+combat skills only). This section generalizes: **tutors can train any social skill**;
+combat skills still self-train through use.
+
+### Hubs (villages / towns)
+
+- **The player's home `settlement` IS their village hub** — a place with resident
+  NPCs and services (tutors now; merchants, quest-givers later). No separate hub
+  concept; we add NPCs/services onto the existing settlement.
+- **A province MAY (or may not) contain a village/town** too — a non-combat hub
+  with its own services. Some provinces have one, some don't (generated). Likely a
+  `town` site type and/or `city`-terrain provinces.
+
+### Tutors — semi-random quality, diminishing returns  (AGREED)
+
+No hard level caps. Each tutor has a **teaching ceiling** for a given tongue/skill —
+a **semi-random** value biased by who they are:
+
+- Native **goblin** teaching goblin-tongue → skews **high** (but only reachable **if
+  approached mildly**: Hostility low → Neutral+; a specific known goblin = person
+  scope, §2/§8).
+- Human **village scholar** → skews **low** (traveled scholar / captured informant).
+- Individual spread either way (a rare well-travelled human may know a lot; a feral
+  goblin little).
+
+**Diminishing returns:** a training session adds an amount based on the **gap between
+your current level and the tutor's ceiling** — the more you already know, the less a
+given tutor can add. At ~their ceiling they can teach no more ("you already speak
+better than I do") and you must find a better tutor. So early on almost any tutor
+helps; **fluency requires high-ceiling tutors — which for goblin means goblins.**
+(This replaces the earlier hard-cap idea.)
+
+The loop payoff stands: spare → Hostility drops → a goblin will teach you → language
+→ interrogate/talk deeper → befriend.
+
+### Tuition — variable cost, always + time  (AGREED)
+
+- **Cost is variable per tutor/level:** some want **gold**, some want a **quest
+  done**, possibly both. Kept flexible for now.
+- The player can **request a quest as the tuition** — ask the tutor for a task
+  instead of (or as well as) paying gold.
+- **Training always takes TIME** — a timed job (fits the rates+timestamps model:
+  computed on read, no background worker). Pay/accept the quest up front; the level
+  lands when the job completes.
+- **One training slot** (starting point): only one skill trains at a time; the slot
+  is occupied until the job finishes, then the skill goes up and the slot frees. Time
+  is the real gate. (A multi-slot queue is an easy later upgrade.)
+
+### Books — unlocked once language passes a threshold  (AGREED)
+
+Once your skill in a tongue exceeds ~a mid ("readable literacy") threshold, you can
+**read books** written in it. Each book gives:
+
+- a **small language bump** (reading practice; also diminishing — a book has its own
+  low ceiling).
+- **Knowledge** in history / culture / folklore (feeds §7 and dialogue checks).
+- a **chance to help an active quest** — same "relevant clue" mechanic as Interrogate
+  (§4): a book may contain something a current quest needs.
+
+Sources: loot, bought in a village/town hub, or found in dungeon libraries/archives
+(ties to the "Archives" that resolve contradictory histories — ideas.txt §10 /
+"contradictory accounts").
+
+### Other sources (keep)
+
+- Rare **phrasebook / captured writings** loot → jump-start the first words.
+- A **neutral intermediary** (ideas.txt §2 ladder: animals → wolves → …).
+
+**First concrete payoff of language = Interrogate (§4)**, long before "be friends".
 
 ---
 
@@ -272,6 +334,11 @@ Then expand race-by-race.
 - **Richer opinion axes** (Respect/Gratitude/Hatred/Debt) beyond Hostility+Trust.
 - **Scope tuning** — blend weights (8/4/2/1), propagation halving fraction, and
   when exactly an NPC gets "promoted" to a persistent person record.
+- **Training model** — one slot vs a multi-slot queue; training durations per level.
+- **Tutor/book tuning** — ceiling distributions per race, the diminishing-returns
+  curve (gap fraction per session), and the book "readable literacy" threshold value.
+- **Town-in-province generation** — how often provinces spawn a village/town hub,
+  and what services they offer.
 - **Where Talk/Trade/Quest UI lives** — extend the Exploration/delve flow vs a new tab.
 
 ---
@@ -309,6 +376,17 @@ Then expand race-by-race.
   player based on its attitude (hostile = robbed/finished, neutral = spared,
   friendly = spared/helped); random no-mercy enemies mirror the fanatics. Mercy
   begets mercy. No permadeath. Tuning open. ✔
+- **Language & skill training via tutors** (§5): home settlement = village hub;
+  provinces may/may not have a town hub too; tuition is variable (gold and/or a
+  quest — player may request a quest); training is a timed job with **one slot**. ✔
+- **Tutor quality is semi-random with diminishing returns** (§5): each tutor has a
+  semi-random teaching *ceiling* (goblins skew high for goblin-tongue if approached
+  mildly, humans low, individual spread); a session adds based on the gap to that
+  ceiling, so more knowledge = less gain, and fluency needs high-ceiling tutors.
+  Replaces hard caps. ✔
+- **Books** (§5): unlocked once language passes a mid literacy threshold; each book
+  gives a small language bump + history/culture/folklore Knowledge + a chance at
+  active-quest clues. ✔
 - Monsters coming to **teach the player their language** parked (unbelievable);
   language is player-earned. Monster-initiated contact in general is fine later
   once trust exists — player initiates first contact for now. ✔
