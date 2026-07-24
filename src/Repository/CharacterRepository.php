@@ -4,14 +4,19 @@ declare(strict_types=1);
 namespace Gob\Repository;
 
 use Gob\Domain\Character;
+use Gob\Repositories;
 use PDO;
 
 // All database access for the hero. Hands back Character domain objects.
-// (Item helpers ownedItems()/grantItem() are still the legacy procedural
-// functions during the migration — called via the global namespace.)
+// Item persistence is delegated to ItemRepository.
 final class CharacterRepository
 {
     public function __construct(private PDO $db) {}
+
+    private function items(): ItemRepository
+    {
+        return Repositories::get(ItemRepository::class);
+    }
 
     // Create the character (plus its skills and starter items) if the player
     // doesn't have one yet. Safe to call repeatedly. Returns the character id.
@@ -32,7 +37,7 @@ final class CharacterRepository
             $skill->execute([$charId, $s]);
         }
         foreach (Character::STARTER_ITEMS as $itemId) {
-            \grantItem($charId, $itemId);
+            $this->items()->grant($charId, $itemId);
         }
         return $charId;
     }
@@ -92,6 +97,6 @@ final class CharacterRepository
             $skills[$s['skill']] = (int)$s['value'];
         }
 
-        return new Character($row, $skills, \ownedItems($charId));
+        return new Character($row, $skills, $this->items()->owned($charId));
     }
 }

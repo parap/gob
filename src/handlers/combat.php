@@ -7,34 +7,15 @@ const MAX_COMBAT_ROUNDS = 60;
 // Goblins drop an ear when slain — the tangible "proof" the elder's quest wants.
 const GOBLIN_EAR_ITEM_ID = 19;
 
+function monsterRepo(): \Gob\Repository\MonsterRepository
+{
+    return \Gob\Repositories::get(\Gob\Repository\MonsterRepository::class);
+}
+
 function handleMonsters(): void
 {
     requirePlayer();
-    $db   = db();
-    $rows = $db->query('SELECT * FROM monsters ORDER BY level, id')->fetchAll();
-
-    // Tags grouped by monster.
-    $tags = [];
-    foreach ($db->query('SELECT monster_id, tag FROM monster_tags ORDER BY tag')->fetchAll() as $t) {
-        $tags[(int)$t['monster_id']][] = $t['tag'];
-    }
-
-    $out = array_map(fn(array $m) => [
-        'id'          => (int)$m['id'],
-        'name'        => $m['name'],
-        'level'       => (int)$m['level'],
-        'hp'          => (int)$m['hp'],
-        'attack'      => (int)$m['attack'],
-        'defense'     => (int)$m['defense'],
-        'protection'  => (int)$m['protection'],
-        'penetration' => (int)$m['penetration'],
-        'reward_gold' => (int)$m['reward_gold'],
-        'race'        => $m['race'] ?? 'unknown',
-        'alignment'   => $m['alignment'] ?? 'neutral',
-        'tags'        => $tags[(int)$m['id']] ?? [],
-        'description' => $m['description'] ?? '',
-    ], $rows);
-    json(200, $out);
+    json(200, array_map(fn($m) => $m->toArray(), monsterRepo()->all()));
 }
 
 // One blow: attack power blunted by the target's defense, then reduced by
@@ -53,9 +34,7 @@ function handleAttack(): void
     $charId = ensureCharacter((int)$player['id'], $player['username']);
 
     $monsterId = (int)(body()['monster_id'] ?? 0);
-    $stmt = db()->prepare('SELECT * FROM monsters WHERE id = ?');
-    $stmt->execute([$monsterId]);
-    $m = $stmt->fetch();
+    $m = monsterRepo()->find($monsterId);
     if (!$m) {
         json(404, ['error' => 'Monster not found.']);
     }

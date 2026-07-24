@@ -26,6 +26,32 @@ final class SettlementRepository
         return $stmt->fetchAll();
     }
 
+    // The player's home (primary) settlement id, or null.
+    public function homeId(int $playerId): ?int
+    {
+        $stmt = $this->db->prepare('SELECT id FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
+        $stmt->execute([$playerId]);
+        $id = $stmt->fetchColumn();
+        return $id !== false ? (int)$id : null;
+    }
+
+    // The home village's reputation (own-race standing).
+    public function reputation(int $playerId): int
+    {
+        $stmt = $this->db->prepare('SELECT reputation FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
+        $stmt->execute([$playerId]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function addReputation(int $playerId, int $amount): void
+    {
+        if ($amount === 0) {
+            return;
+        }
+        $this->db->prepare('UPDATE settlements SET reputation = reputation + ? WHERE player_id = ? ORDER BY id LIMIT 1')
+                 ->execute([$amount, $playerId]);
+    }
+
     // Apply production accrued since last_tick, persist it, and return the
     // updated row. Takes the row the caller already fetched.
     public function tick(array $s): array

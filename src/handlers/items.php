@@ -1,69 +1,28 @@
 <?php
 declare(strict_types=1);
 
-// The specific equipment slots an item of a given slot_type may occupy.
-// Rings and bracelets each have two numbered slots; everything else is 1:1.
-function slotsForType(string $type): array
+use Gob\Domain\Item;
+use Gob\Repository\ItemRepository;
+
+// Item logic now lives in Gob\Domain\Item and Gob\Repository\ItemRepository.
+// ownedItems()/grantItem() stay as globals (many callers across the handlers);
+// the rest is orchestrated here.
+
+function itemRepo(): ItemRepository
 {
-    return match ($type) {
-        'ring'     => ['ring_1', 'ring_2'],
-        'bracelet' => ['bracelet_1', 'bracelet_2'],
-        default    => [$type],
-    };
+    return \Gob\Repositories::get(ItemRepository::class);
 }
 
-// Shape a joined character_items + items row into API detail.
-function itemDetail(array $r): array
-{
-    $bonuses = [];
-    foreach (['str', 'dex', 'con', 'int', 'wis', 'cha', 'hp', 'mana', 'courage',
-              'defense', 'protection', 'attack', 'penetration', 'perception'] as $k) {
-        $v = (int)$r["bonus_$k"];
-        if ($v !== 0) {
-            $bonuses[$k] = $v;
-        }
-    }
-    return [
-        'char_item_id'  => (int)$r['ci_id'],
-        'item_id'       => (int)$r['item_id'],
-        'name'          => $r['name'],
-        'slot_type'     => $r['slot_type'],
-        'rarity'        => $r['rarity'],
-        'weapon_skill'  => $r['weapon_skill'],
-        'equipped_slot' => $r['equipped_slot'],
-        'kind'          => $r['kind'],
-        'heal'          => (int)$r['heal_hp'],
-        'sell_value'    => (int)$r['sell_value'],
-        'description'   => $r['description'] ?? '',
-        'bonuses'       => $bonuses,
-    ];
-}
-
-// All items a character owns (equipped and backpack), as detail rows.
+// All items a character owns (equipped + backpack), as detail rows.
 function ownedItems(int $charId): array
 {
-    $stmt = db()->prepare(
-        'SELECT ci.id AS ci_id, ci.item_id, ci.equipped_slot,
-                i.name, i.slot_type, i.rarity, i.weapon_skill,
-                i.bonus_str, i.bonus_dex, i.bonus_con, i.bonus_int, i.bonus_wis, i.bonus_cha,
-                i.bonus_hp, i.bonus_mana, i.bonus_courage,
-                i.bonus_defense, i.bonus_protection, i.bonus_attack, i.bonus_penetration,
-                i.bonus_perception, i.kind, i.heal_hp, i.sell_value, i.description
-         FROM character_items ci
-         JOIN items i ON i.id = ci.item_id
-         WHERE ci.character_id = ?
-         ORDER BY i.name'
-    );
-    $stmt->execute([$charId]);
-    return array_map('itemDetail', $stmt->fetchAll());
+    return itemRepo()->owned($charId);
 }
 
-// Give a character an item instance (goes to the backpack, unequipped).
+// Give a character an item instance (backpack, unequipped).
 function grantItem(int $charId, int $itemId): void
 {
-    db()->prepare(
-        'INSERT INTO character_items (character_id, item_id) VALUES (?, ?)'
-    )->execute([$charId, $itemId]);
+    itemRepo()->grant($charId, $itemId);
 }
 
 function handleEquip(): void
@@ -75,16 +34,8 @@ function handleEquip(): void
     $charItemId = (int)($b['char_item_id'] ?? 0);
     $wantedSlot = isset($b['slot']) ? (string)$b['slot'] : null;
 
-    $db = db();
-
-    // The instance must belong to this character.
-    $stmt = $db->prepare(
-        'SELECT ci.id, i.slot_type, i.kind
-         FROM character_items ci JOIN items i ON i.id = ci.item_id
-         WHERE ci.id = ? AND ci.character_id = ?'
-    );
-    $stmt->execute([$charItemId, $charId]);
-    $row = $stmt->fetch();
+    $repo = itemRepo();
+    $row  = $repo->instance($charItemId, $charId);
     if (!$row) {
         json(404, ['error' => 'Item not found.']);
     }
@@ -92,60 +43,42 @@ function handleEquip(): void
         json(400, ['error' => 'That item cannot be equipped — use it instead.']);
     }
 
-    $allowed = slotsForType($row['slot_type']);
+    $allowed = Item::slotsForType($row['slot_type']);
 
-    // Pick a slot: honour the requested one if valid, else first free slot,
-    // else fall back to the first allowed slot (replacing what's there).
+    // Honour a requested slot if valid, else the first free one, else replace
+    // whatever's in the first allowed slot.
     if ($wantedSlot !== null) {
         if (!in_array($wantedSlot, $allowed, true)) {
             json(400, ['error' => 'That item does not fit that slot.']);
         }
         $slot = $wantedSlot;
     } else {
-        $slot = firstFreeSlot($charId, $allowed) ?? $allowed[0];
+        $slot = $repo->firstFreeSlot($charId, $allowed) ?? $allowed[0];
     }
 
-    // Transaction: clear the target slot, then move this item into it.
-    $db->beginTransaction();
-    $db->prepare('UPDATE character_items SET equipped_slot = NULL WHERE character_id = ? AND equipped_slot = ?')
-       ->execute([$charId, $slot]);
-    $db->prepare('UPDATE character_items SET equipped_slot = ? WHERE id = ?')
-       ->execute([$slot, $charItemId]);
-    $db->commit();
-
+    $repo->equip($charId, $charItemId, $slot);
     handleMyCharacter();
 }
 
-function firstFreeSlot(int $charId, array $allowed): ?string
+function handleUnequip(): void
 {
-    $stmt = db()->prepare(
-        'SELECT equipped_slot FROM character_items
-         WHERE character_id = ? AND equipped_slot IS NOT NULL'
-    );
-    $stmt->execute([$charId]);
-    $taken = array_column($stmt->fetchAll(), 'equipped_slot');
-    foreach ($allowed as $slot) {
-        if (!in_array($slot, $taken, true)) {
-            return $slot;
-        }
-    }
-    return null;
+    $player = requirePlayer();
+    $charId = ensureCharacter((int)$player['id'], $player['username']);
+
+    $slot = (string)(body()['slot'] ?? '');
+    itemRepo()->unequipSlot($charId, $slot);
+
+    handleMyCharacter();
 }
 
 function handleUseItem(): void
 {
     $player = requirePlayer();
     $charId = ensureCharacter((int)$player['id'], $player['username']);
-    $db     = db();
 
+    $repo       = itemRepo();
     $charItemId = (int)(body()['char_item_id'] ?? 0);
-    $stmt = $db->prepare(
-        'SELECT ci.id, i.kind, i.heal_hp, i.name
-         FROM character_items ci JOIN items i ON i.id = ci.item_id
-         WHERE ci.id = ? AND ci.character_id = ?'
-    );
-    $stmt->execute([$charItemId, $charId]);
-    $row = $stmt->fetch();
+    $row        = $repo->instance($charItemId, $charId);
     if (!$row) {
         json(404, ['error' => 'Item not found.']);
     }
@@ -155,6 +88,7 @@ function handleUseItem(): void
 
     tickCharacterRegen($charId); // settle passive regen before healing
 
+    $db = db();
     $ch = $db->prepare('SELECT hp, hp_max FROM characters WHERE id = ?');
     $ch->execute([$charId]);
     $c = $ch->fetch();
@@ -164,7 +98,7 @@ function handleUseItem(): void
     $healed = $newHp - (int)$c['hp'];
 
     $db->prepare('UPDATE characters SET hp = ? WHERE id = ?')->execute([$newHp, $charId]);
-    $db->prepare('DELETE FROM character_items WHERE id = ?')->execute([$charItemId]);
+    $repo->deleteInstance($charItemId);
 
     json(200, [
         'healed'    => $healed,
@@ -177,16 +111,10 @@ function handleSellItem(): void
 {
     $player = requirePlayer();
     $charId = ensureCharacter((int)$player['id'], $player['username']);
-    $db     = db();
 
+    $repo       = itemRepo();
     $charItemId = (int)(body()['char_item_id'] ?? 0);
-    $stmt = $db->prepare(
-        'SELECT ci.id, ci.equipped_slot, i.sell_value, i.name
-         FROM character_items ci JOIN items i ON i.id = ci.item_id
-         WHERE ci.id = ? AND ci.character_id = ?'
-    );
-    $stmt->execute([$charItemId, $charId]);
-    $row = $stmt->fetch();
+    $row        = $repo->instance($charItemId, $charId);
     if (!$row) {
         json(404, ['error' => 'Item not found.']);
     }
@@ -197,6 +125,7 @@ function handleSellItem(): void
     $gold = (int)$row['sell_value'];
 
     // Credit the primary settlement (settle production first, then add).
+    $db  = db();
     $sel = $db->prepare('SELECT * FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
     $sel->execute([$player['id']]);
     if ($settlement = $sel->fetch()) {
@@ -205,23 +134,11 @@ function handleSellItem(): void
            ->execute([$gold, $settlement['id']]);
     }
 
-    $db->prepare('DELETE FROM character_items WHERE id = ?')->execute([$charItemId]);
+    $repo->deleteInstance($charItemId);
 
     json(200, [
         'sold'      => $row['name'],
         'gold'      => $gold,
         'character' => loadCharacter($charId),
     ]);
-}
-
-function handleUnequip(): void
-{
-    $player = requirePlayer();
-    $charId = ensureCharacter((int)$player['id'], $player['username']);
-
-    $slot = (string)(body()['slot'] ?? '');
-    db()->prepare('UPDATE character_items SET equipped_slot = NULL WHERE character_id = ? AND equipped_slot = ?')
-        ->execute([$charId, $slot]);
-
-    handleMyCharacter();
 }
