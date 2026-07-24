@@ -20,6 +20,46 @@ First hours = ordinary hack-and-slash. Over time the *same* monsters and places
 reveal deeper layers. See `ideas.txt` for the full vision; this doc is the
 practical, agreed subset.
 
+### Two layers: hidden & opt-in  (AGREED)
+
+The game is **two layers**, and the deep one is **hidden and opt-in**:
+
+- **Surface layer** — an ordinary, *complete* hack-and-slash: seek out a quest, kill
+  monsters, take gold/loot. A player who does only this has a whole finished game and
+  is never told they're missing anything.
+- **Understanding layer** — the "change your model of the world" content: what monsters
+  actually say/mean, alliances, unique quests, story. Reachable only by **investing**
+  in understanding (language, Empathy, Lore). Without the investment the player
+  literally cannot perceive it — the info model (§7) renders goblin speech as `"GRAAAH"`
+  until `Language` is high enough. The architecture already enforces this.
+
+**No directions.** We do NOT signpost the deep layer — no NPC pitch, no quest marker,
+no tutorial nudge. Discovery is **intrinsic + environmental**:
+- *Intrinsic*: the player tires of pure grinding and experiments with options that are
+  quietly available (the tutor exists; the mercy toggle exists) — nothing tells them to.
+- *Environmental cues*: gibberish that is visibly **consistent, not random** (clearly a
+  language); **untranslatable goblin writings, books, and a few (sparse) notes** found
+  as loot (you can't read them yet — the itch is the hook); observations that don't fit
+  ("mindless monsters" with children's toys and sick elders).
+
+**Two currencies.** Surface pays in **gold/gear**; the understanding layer pays in a
+**different kind** — information, allies, unique quests, story, safe passage. So neither
+playstyle invalidates the other: the murder-hobo isn't "playing wrong," and the curious
+player isn't just min-maxing loot.
+
+**Accepted tradeoff:** with no directions, *fewer* players find the deep layer — fine,
+because the surface game stands alone. Guardrail: **"no directions" ≠ "no cues."** The
+cues must exist in the world (consistent speech, readable-*looking* books, repeating odd
+observations) so the thread is there to be pulled by anyone who looks.
+
+**Two is a starting lens, not a wall.** The long-term goal is a **spectrum of
+playstyles**, not a binary of exterminator vs. diplomat — e.g. trader, tactician,
+lorekeeper, manipulator (uses info to deceive/exploit, not just befriend), peacemaker,
+and everything between. These should **emerge** from the orthogonal systems (combat,
+perception/info, relationships, economy, knowledge) rather than be hard-coded. So build
+the two poles first (gold/gear vs. understanding), but **don't design the binary in as a
+hard wall** — keep the systems independent so more styles fall out later.
+
 **For the current stage, the player is the initiator of first contact.** The world
 unfolds mainly because the player's own *verbs multiply* on the same encounter.
 
@@ -431,6 +471,35 @@ So better quests are **earned** — no goblin "settle our clan war" until goblin
 - Interrogation (§4) and books (§5) surface **clues = facts tagged to active quests**,
   so the mercy/interrogate/read loops feed quest progress.
 
+### Multiple solutions & interconnected causes  (AGREED)
+
+The two-layer design (§1) expressed at the quest level: a quest can have **more than one
+valid solution**.
+
+- **Surface path** — usually brute force (kill / clear). Always available; pays
+  gold/loot. A player can solve every quest this way forever and never learn why.
+- **Deeper path** — resolve the **root cause**. Opt-in, found via **hints only** (never
+  directed), often reachable only if you *understand*. Pays a different currency
+  (knowledge / standing / allies / a changed world-state) and usually avoids bloodshed.
+
+Both complete the quest; neither is "the right answer."
+
+**Interconnected causes.** The world is a system — a faction's problem often has its
+cause in *another* faction, and understanding reveals the chain. Hints exist in the
+world (tracks, a note, behaviour patterns); nothing forces the player to follow them.
+
+**Canonical example — "Wolves are attacking the sheep":**
+- *Surface:* kill the wolves → gold, done.
+- *Hints:* the wolves' usual hunting grounds are blocked — goblins (or giant ants) have
+  moved in.
+- *Deeper:* deal with the **cause** — drive off / negotiate with / relocate the
+  goblins/ants → the wolves return to their range and stop raiding the sheep. Reward:
+  wolf standing / knowledge / maybe a wolf ally, and no massacre.
+
+So **wolves are a parallel questline**, not a tutorial on-ramp (§11). Build note: v1
+ships the **surface path** (kill/fetch/deliver above); the deeper root-cause path is the
+understanding layer — authored now, built later.
+
 ---
 
 ## 9. Likely implementation surface  (TENTATIVE — not finalized)
@@ -528,12 +597,34 @@ Then expand race-by-race. (Contradictory truth / Verified / Common come later.)
   (quests, seeking help) is NOT rejected — welcome later once trust exists (§1).
 - **Interactive mid-fight mercy interrupt** — parked in favor of the simpler
   post-fight stance + 30s window.
+- **Wolf "primitive-language" on-ramp** — dropped 2026-07-24. No dedicated easy-language
+  tutorial race; **goblins are the first understanding race**, discovered via
+  writings/books/sparse notes/spoken words with **no push**. Wolves instead become a
+  **parallel questline** (e.g. the sheep / blocked-hunting-grounds quest, §8) that shows
+  off multiple-solution + interconnected-cause design.
 
 ---
 
 ## Decision log
 
 2026-07-24:
+- **Two-layer, hidden & opt-in design** (§1): a complete surface hack-and-slash
+  (gold/gear) + a hidden understanding layer (info/allies/quests/story) reachable only
+  by investing in language/skills. **NO directions** — no NPC pitch/quest-marker/nudge;
+  discovery is intrinsic (grind→boredom→experiment) + environmental (consistent
+  gibberish, untranslatable goblin books, mismatched observations). Two currencies so
+  neither playstyle is "wrong." Accepted that fewer players find it; cues must still
+  exist in-world ("no directions" ≠ "no cues"). Two is a **starting lens, not a wall** —
+  long-term goal is a spectrum of emergent playstyles (trader, tactician, lorekeeper,
+  manipulator, peacemaker…) from orthogonal systems; don't hard-wire the binary. ✔
+- **Wolf on-ramp dropped; goblins are the first understanding race** (§1/§8/§11). No
+  push — cues only: consistent spoken words, writings, books, sparse notes. Wolves
+  become a parallel questline. ✔
+- **Quests can have multiple solutions** (§8): a surface brute path (kill; always
+  available; gold/loot) and an opt-in deeper root-cause path (hints only; different
+  currency). The world is **interconnected** — one faction's problem is often caused by
+  another. Canonical: wolves raid sheep because goblins/ants block their hunting grounds
+  → kill the wolves OR fix the cause. v1 builds the surface path. ✔
 - Two-axis relationship (Hostility vs Trust); sparing lowers Hostility only and
   **caps at Neutral**; friendship needs active help. ✔
 - Relationship tracked at **four nested scopes** — person (×8) / site (×4) /
