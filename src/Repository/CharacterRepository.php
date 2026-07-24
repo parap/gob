@@ -81,6 +81,34 @@ final class CharacterRepository
                  ->execute([$newHp, $charId]);
     }
 
+    // Change the hero's passive regen bonus (settle current regen first; floor at 0).
+    public function adjustRegenBonus(int $charId, int $delta): void
+    {
+        if ($delta === 0) {
+            return;
+        }
+        $this->regen($charId);
+        $this->db->prepare('UPDATE characters SET regen_bonus = GREATEST(0, regen_bonus + ?) WHERE id = ?')
+                 ->execute([$delta, $charId]);
+    }
+
+    // Seconds left on the explore cooldown (0 if ready / never explored).
+    public function exploreCooldownRemaining(int $charId, int $seconds): int
+    {
+        $stmt = $this->db->prepare('SELECT last_explore_at FROM characters WHERE id = ?');
+        $stmt->execute([$charId]);
+        $last = $stmt->fetchColumn();
+        if (!$last) {
+            return 0;
+        }
+        return max(0, $seconds - (time() - strtotime($last)));
+    }
+
+    public function stampExplore(int $charId): void
+    {
+        $this->db->prepare('UPDATE characters SET last_explore_at = NOW() WHERE id = ?')->execute([$charId]);
+    }
+
     // Load the full character (regen applied first) as a domain object.
     public function load(int $charId): Character
     {

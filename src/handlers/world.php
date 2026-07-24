@@ -1,6 +1,20 @@
 <?php
 declare(strict_types=1);
 
+use Gob\Domain\Province;
+use Gob\Domain\Site;
+use Gob\Repository\WorldRepository;
+
+// The province world. DB access lives in Gob\Repository\WorldRepository (and the
+// other repos for monsters/items/settlements/characters); this file keeps the
+// generation algorithm and request orchestration. ensureHomeProvince() and
+// addGold() stay callable from village.php.
+
+function worldRepo(): WorldRepository
+{
+    return \Gob\Repositories::get(WorldRepository::class);
+}
+
 // Open-ended d6 (a 6 explodes: reroll and add). Long-tailed, like Dominions DRN.
 function drn(): int
 {
@@ -20,6 +34,16 @@ const TERRAIN_POOLS = [
     'caves'     => ['construct', 'magic', 'undead', 'demon'],
 ];
 const TERRAINS = ['plains', 'forest', 'mountains', 'swamp', 'city', 'caves'];
+
+const EXPLORE_COOLDOWN = 1;   // seconds; anti-spam floor (client search animation paces it)
+const RAID_CHANCE      = 20;  // percent chance of a raid per explore
+
+// Loot chance (%) and rarity for clearing each site type.
+const SITE_LOOT = [
+    'minor'   => [40, 'common'],
+    'boon'    => [60, 'uncommon'],
+    'dungeon' => [80, 'rare'],
+];
 
 // Map the settlement's terrain enum to a province terrain.
 function settlementTerrainToProvince(string $t): string
@@ -41,29 +65,6 @@ function provinceName(string $terrain): string
     return $adj[array_rand($adj)] . ' ' . $noun[array_rand($noun)];
 }
 
-// Candidate monster ids for a terrain within a level band.
-function terrainMonsterIds(string $terrain, int $level): array
-{
-    $pool = TERRAIN_POOLS[$terrain] ?? ['humanoid'];
-    $ph   = implode(',', array_fill(0, count($pool), '?'));
-    $lo   = max(1, $level - 2);
-    $hi   = $level + 3;
-    $stmt = db()->prepare(
-        "SELECT DISTINCT m.id FROM monsters m
-         LEFT JOIN monster_tags t ON t.monster_id = m.id
-         WHERE (m.race IN ($ph) OR t.tag IN ($ph))
-           AND m.level BETWEEN ? AND ?"
-    );
-    $stmt->execute([...$pool, ...$pool, $lo, $hi]);
-    $ids = array_map('intval', array_column($stmt->fetchAll(), 'id'));
-    if (!$ids) { // fallback: any monster in the band
-        $stmt = db()->prepare('SELECT id FROM monsters WHERE level BETWEEN ? AND ?');
-        $stmt->execute([$lo, $hi]);
-        $ids = array_map('intval', array_column($stmt->fetchAll(), 'id'));
-    }
-    return $ids ?: [1];
-}
-
 function siteFlavorName(string $type, string $terrain): string
 {
     $pools = [
@@ -75,24 +76,21 @@ function siteFlavorName(string $type, string $terrain): string
     return $p[array_rand($p)];
 }
 
-// Generate a province plus its scattered sites/dungeons/roads. Returns id.
+// Dexterity decides how much ground a single explore covers (2–5%).
+function sweepPercent(float $dex): float
+{
+    return round(min(5.0, 2.0 + $dex * 0.5), 2);
+}
+
+// Generate a province plus its scattered sites/dungeons/roads. Returns its id.
 function generateProvince(int $playerId, string $terrain, int $level, bool $isHome): int
 {
-    $db = db();
-    $db->prepare('INSERT INTO provinces (player_id, name, terrain, level, is_home) VALUES (?, ?, ?, ?, ?)')
-       ->execute([$playerId, provinceName($terrain), $terrain, $level, $isHome ? 1 : 0]);
-    $provinceId = (int)$db->lastInsertId();
+    $world      = worldRepo();
+    $provinceId = $world->createProvince($playerId, provinceName($terrain), $terrain, $level, $isHome);
 
-    $candidates = terrainMonsterIds($terrain, $level);
-    $pick = fn() => $candidates[array_rand($candidates)];
-
-    $insert = $db->prepare(
-        'INSERT INTO province_sites
-         (province_id, player_id, type, name, position, concealment, reward_gold,
-          bonus_gold_rate, bonus_wood_rate, bonus_stone_rate, bonus_regen,
-          reward_item_id, road_terrain, stages_json, description)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
-    );
+    $pool       = TERRAIN_POOLS[$terrain] ?? ['humanoid'];
+    $candidates = monsterRepo()->terrainCandidates($pool, $level);
+    $pick       = fn() => $candidates[array_rand($candidates)];
 
     $siteCount = random_int(30, 50);
     for ($i = 0; $i < $siteCount; $i++) {
@@ -113,7 +111,6 @@ function generateProvince(int $playerId, string $terrain, int $level, bool $isHo
             $conceal = random_int(4, 9);
             $stages  = [$pick(), $pick()];
             if (random_int(0, 1)) $stages[] = $pick();
-            // one small ongoing bonus
             switch (random_int(0, 3)) {
                 case 0: $goldR  = random_int(3, 8); break;
                 case 1: $woodR  = random_int(3, 8); break;
@@ -126,13 +123,23 @@ function generateProvince(int $playerId, string $terrain, int $level, bool $isHo
             $stages = [];
             for ($s = 0; $s < $n; $s++) $stages[] = $pick();
             $rewardGold = random_int(30, 80) * $level;
-            $rewardItem = randomItemId($conceal >= 12 ? 'rare' : 'uncommon');
+            $rewardItem = itemRepo()->randomByRarity($conceal >= 12 ? 'rare' : 'uncommon');
         }
 
-        $insert->execute([
-            $provinceId, $playerId, $type, siteFlavorName($type, $terrain), $pos, $conceal,
-            $rewardGold, $goldR, $woodR, $stoneR, $regen, $rewardItem, null,
-            json_encode($stages), null,
+        $world->insertSite([
+            'province_id'      => $provinceId,
+            'player_id'        => $playerId,
+            'type'             => $type,
+            'name'             => siteFlavorName($type, $terrain),
+            'position'         => $pos,
+            'concealment'      => $conceal,
+            'reward_gold'      => $rewardGold,
+            'bonus_gold_rate'  => $goldR,
+            'bonus_wood_rate'  => $woodR,
+            'bonus_stone_rate' => $stoneR,
+            'bonus_regen'      => $regen,
+            'reward_item_id'   => $rewardItem,
+            'stages_json'      => json_encode($stages),
         ]);
     }
 
@@ -140,161 +147,69 @@ function generateProvince(int $playerId, string $terrain, int $level, bool $isHo
     $roads = random_int(2, 4);
     for ($i = 0; $i < $roads; $i++) {
         $rt = TERRAINS[array_rand(TERRAINS)];   // one terrain for both label and target
-        $insert->execute([
-            $provinceId, $playerId, 'road',
-            'Road to ' . ucfirst($rt),
-            random_int(0, 10000) / 100, random_int(3, 8),
-            0, 0, 0, 0, 0, null, $rt, null, null,
+        $world->insertSite([
+            'province_id'  => $provinceId,
+            'player_id'    => $playerId,
+            'type'         => 'road',
+            'name'         => 'Road to ' . ucfirst($rt),
+            'position'     => random_int(0, 10000) / 100,
+            'concealment'  => random_int(3, 8),
+            'road_terrain' => $rt,
         ]);
     }
 
     return $provinceId;
 }
 
-// Pick a random item id at (roughly) the given rarity, for dungeon rewards.
-function randomItemId(string $rarity): ?int
-{
-    $stmt = db()->prepare('SELECT id FROM items WHERE rarity = ? AND kind = "gear" ORDER BY RAND() LIMIT 1');
-    $stmt->execute([$rarity]);
-    $id = $stmt->fetchColumn();
-    return $id !== false ? (int)$id : null;
-}
-
 // Ensure the player has a home province (terrain from their settlement) and a
 // current-province pointer. Returns the current province id.
 function ensureHomeProvince(int $playerId, int $charId): int
 {
-    $db = db();
-    $stmt = $db->prepare('SELECT current_province_id FROM characters WHERE id = ?');
-    $stmt->execute([$charId]);
-    $cur = $stmt->fetchColumn();
+    $cur = worldRepo()->currentProvinceId($charId);
     if ($cur) {
-        return (int)$cur;
+        return $cur;
     }
-
-    // Terrain of the home province = the player's settlement terrain.
-    $stmt = $db->prepare('SELECT terrain FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
-    $stmt->execute([$playerId]);
-    $terrain = settlementTerrainToProvince((string)($stmt->fetchColumn() ?: 'plains'));
-
-    $homeId = generateProvince($playerId, $terrain, 1, true);
-    $db->prepare('UPDATE characters SET current_province_id = ? WHERE id = ?')->execute([$homeId, $charId]);
+    $terrain = settlementTerrainToProvince(settlementRepo()->homeTerrain($playerId) ?? 'plains');
+    $homeId  = generateProvince($playerId, $terrain, 1, true);
+    worldRepo()->setCurrentProvince($charId, $homeId);
     return $homeId;
 }
 
 // Shape a discovered site row for the client (hidden sites are never sent).
 function worldSitePayload(array $s): array
 {
-    $stages = $s['stages_json'] ? json_decode($s['stages_json'], true) : [];
-
-    // The monster guarding the next stage (for sites still to fight).
+    $site = new Site($s);
     $next = null;
-    $nextDesc = null;
-    if ($s['state'] === 'found' && isset($stages[(int)$s['progress']])) {
-        $st = db()->prepare('SELECT name, description FROM monsters WHERE id = ?');
-        $st->execute([(int)$stages[(int)$s['progress']]]);
-        if ($row = $st->fetch()) {
-            $next     = $row['name'];
-            $nextDesc = $row['description'];
-        }
+    $mid  = $site->nextMonsterId();
+    if ($mid !== null && ($m = monsterRepo()->find($mid))) {
+        $next = ['name' => $m['name'], 'description' => $m['description']];
     }
-
-    return [
-        'id'           => (int)$s['id'],
-        'type'         => $s['type'],
-        'name'         => $s['name'],
-        'state'        => $s['state'],
-        'progress'     => (int)$s['progress'],
-        'total_stages' => count($stages),
-        'next_monster' => $next,
-        'next_monster_desc' => $nextDesc,
-        'road_terrain' => $s['road_terrain'],
-        'reward'       => [
-            'gold'       => (int)$s['reward_gold'],
-            'gold_rate'  => (int)$s['bonus_gold_rate'],
-            'wood_rate'  => (int)$s['bonus_wood_rate'],
-            'stone_rate' => (int)$s['bonus_stone_rate'],
-            'regen'      => (int)$s['bonus_regen'],
-            'item_id'    => $s['reward_item_id'] !== null ? (int)$s['reward_item_id'] : null,
-        ],
-    ];
+    return $site->toArray($next);
 }
 
-const EXPLORE_COOLDOWN = 1;   // seconds; anti-spam floor (client search animation paces it)
-const RAID_CHANCE      = 20;  // percent chance of a raid per explore
-
-// Dexterity decides how much ground a single explore covers (2–5%).
-function sweepPercent(float $dex): float
-{
-    return round(min(5.0, 2.0 + $dex * 0.5), 2);
-}
-
-function linkProvinces(int $playerId, int $x, int $y): void
-{
-    db()->prepare('INSERT IGNORE INTO province_links (player_id, a, b) VALUES (?, ?, ?)')
-        ->execute([$playerId, min($x, $y), max($x, $y)]);
-}
-
-function itemName(int $id): string
-{
-    $st = db()->prepare('SELECT name FROM items WHERE id = ?');
-    $st->execute([$id]);
-    return (string)$st->fetchColumn();
-}
-
+// Credit gold to the player's settlement. Kept callable from village.php.
 function addGold(array $player, int $gold): void
 {
-    if ($gold <= 0) return;
-    $db  = db();
-    $sel = $db->prepare('SELECT * FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
-    $sel->execute([$player['id']]);
-    if ($s = $sel->fetch()) {
-        tickSettlement($s);
-        $db->prepare('UPDATE settlements SET gold = LEAST(capacity_gold, gold + ?) WHERE id = ?')
-           ->execute([$gold, $s['id']]);
-    }
+    settlementRepo()->addGold((int)$player['id'], $gold);
 }
 
 // Apply (sign +1) or revoke (sign -1) a boon site's ongoing bonuses.
 function applyBoon(array $player, int $charId, array $s, int $sign): void
 {
-    $db = db();
-    $gr = $sign * (int)$s['bonus_gold_rate'];
-    $wr = $sign * (int)$s['bonus_wood_rate'];
-    $sr = $sign * (int)$s['bonus_stone_rate'];
-    $rg = $sign * (int)$s['bonus_regen'];
-
-    if ($gr || $wr || $sr) {
-        $sel = $db->prepare('SELECT * FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
-        $sel->execute([$player['id']]);
-        if ($st = $sel->fetch()) {
-            tickSettlement($st);
-            $db->prepare(
-                'UPDATE settlements SET
-                    rate_gold_per_hour  = GREATEST(0, rate_gold_per_hour  + ?),
-                    rate_wood_per_hour  = GREATEST(0, rate_wood_per_hour  + ?),
-                    rate_stone_per_hour = GREATEST(0, rate_stone_per_hour + ?)
-                 WHERE id = ?'
-            )->execute([$gr, $wr, $sr, $st['id']]);
-        }
-    }
-    if ($rg) {
-        tickCharacterRegen($charId);
-        $db->prepare('UPDATE characters SET regen_bonus = GREATEST(0, regen_bonus + ?) WHERE id = ?')
-           ->execute([$rg, $charId]);
-    }
+    settlementRepo()->adjustRates(
+        (int)$player['id'],
+        $sign * (int)$s['bonus_gold_rate'],
+        $sign * (int)$s['bonus_wood_rate'],
+        $sign * (int)$s['bonus_stone_rate'],
+    );
+    characterRepo()->adjustRegenBonus($charId, $sign * (int)$s['bonus_regen']);
 }
-
-// Loot chance (%) and rarity for clearing each site type.
-const SITE_LOOT = [
-    'minor'   => [40, 'common'],
-    'boon'    => [60, 'uncommon'],
-    'dungeon' => [80, 'rare'],
-];
 
 function applySiteReward(array $player, int $charId, array $s): array
 {
     $summary = ['gold' => 0, 'rate' => null, 'regen' => 0, 'items' => []];
+    $items   = itemRepo();
+
     if ((int)$s['reward_gold'] > 0) {
         addGold($player, (int)$s['reward_gold']);
         $summary['gold'] = (int)$s['reward_gold'];
@@ -312,19 +227,19 @@ function applySiteReward(array $player, int $charId, array $s): array
     // Fixed reward item (dungeons carry one from generation).
     if ($s['reward_item_id'] !== null) {
         grantItem($charId, (int)$s['reward_item_id']);
-        $summary['items'][] = itemName((int)$s['reward_item_id']);
+        $summary['items'][] = $items->name((int)$s['reward_item_id']);
     }
     // Chance-based loot for clearing the site.
     if ($loot = SITE_LOOT[$s['type']] ?? null) {
-        if (random_int(1, 100) <= $loot[0] && ($id = randomItemId($loot[1]))) {
+        if (random_int(1, 100) <= $loot[0] && ($id = $items->randomByRarity($loot[1]))) {
             grantItem($charId, $id);
-            $summary['items'][] = itemName($id);
+            $summary['items'][] = $items->name($id);
         }
     }
     // Dungeons have a shot at an epic on top.
-    if ($s['type'] === 'dungeon' && random_int(1, 100) <= 25 && ($id = randomItemId('epic'))) {
+    if ($s['type'] === 'dungeon' && random_int(1, 100) <= 25 && ($id = $items->randomByRarity('epic'))) {
         grantItem($charId, $id);
-        $summary['items'][] = itemName($id);
+        $summary['items'][] = $items->name($id);
     }
     return $summary;
 }
@@ -334,32 +249,24 @@ function applySiteReward(array $player, int $charId, array $s): array
 function maybeRaid(array $player, int $charId): ?array
 {
     if (random_int(1, 100) > RAID_CHANCE) return null;
-    $db = db();
-    $st = $db->prepare('SELECT * FROM province_sites WHERE player_id = ? AND type = "dungeon" AND state = "hidden" ORDER BY RAND() LIMIT 1');
-    $st->execute([$player['id']]);
-    $dun = $st->fetch();
+    $world = worldRepo();
+
+    $dun = $world->randomHiddenDungeon((int)$player['id']);
     if (!$dun) return null;
 
     $stages = json_decode($dun['stages_json'], true) ?: [];
     if (!$stages) return null;
+
     // A raiding party is one of the dungeon's monsters (not always the boss).
-    $ms = $db->prepare('SELECT * FROM monsters WHERE id = ?');
-    $ms->execute([(int)$stages[array_rand($stages)]]);
-    $boss = $ms->fetch();
+    $boss = monsterRepo()->find((int)$stages[array_rand($stages)]);
     if (!$boss) return null;
 
-    $res     = resolveFight($player, $charId, $boss);
+    $res      = resolveFight($player, $charId, $boss);
     $lostSite = null;
     if ($res['outcome'] === 'loss') {
-        $b = $db->prepare(
-            'SELECT * FROM province_sites WHERE player_id = ? AND type = "boon" AND state = "cleared"
-             AND (bonus_gold_rate>0 OR bonus_wood_rate>0 OR bonus_stone_rate>0 OR bonus_regen>0)
-             ORDER BY RAND() LIMIT 1'
-        );
-        $b->execute([$player['id']]);
-        if ($bs = $b->fetch()) {
+        if ($bs = $world->randomClearedBoon((int)$player['id'])) {
             applyBoon($player, $charId, $bs, -1);
-            $db->prepare('UPDATE province_sites SET state = "found", progress = 0 WHERE id = ?')->execute([$bs['id']]);
+            $world->setSiteProgressState((int)$bs['id'], 0, 'found');
             $lostSite = $bs['name'];
         }
     }
@@ -371,49 +278,38 @@ function handleProvinceExplore(): void
     $player = requirePlayer();
     $charId = ensureCharacter((int)$player['id'], $player['username']);
     $cur    = ensureHomeProvince((int)$player['id'], $charId);
-    $db     = db();
+    $world  = worldRepo();
 
-    $st = $db->prepare('SELECT last_explore_at FROM characters WHERE id = ?');
-    $st->execute([$charId]);
-    $last = $st->fetchColumn();
-    if ($last) {
-        $el = time() - strtotime($last);
-        if ($el < EXPLORE_COOLDOWN) {
-            json(429, ['error' => 'You must rest before exploring again.', 'retry_after' => EXPLORE_COOLDOWN - $el]);
-        }
+    $remain = characterRepo()->exploreCooldownRemaining($charId, EXPLORE_COOLDOWN);
+    if ($remain > 0) {
+        json(429, ['error' => 'You must rest before exploring again.', 'retry_after' => $remain]);
     }
-    $db->prepare('UPDATE characters SET last_explore_at = NOW() WHERE id = ?')->execute([$charId]);
+    characterRepo()->stampExplore($charId);
 
     $c    = loadCharacter($charId);
     $dex  = $c['stats_effective']['dex'];
     $perc = $c['substats_effective']['perception'];
 
-    $pv = $db->prepare('SELECT * FROM provinces WHERE id = ? AND player_id = ?');
-    $pv->execute([$cur, $player['id']]);
-    $prov = $pv->fetch();
+    $prov = $world->findProvince($cur, (int)$player['id']);
     $old  = (float)$prov['explored_pct'];
     $new  = min(100.0, $old + sweepPercent((float)$dex));
-    $db->prepare('UPDATE provinces SET explored_pct = ? WHERE id = ?')->execute([$new, $cur]);
+    $world->updateExplored($cur, $new);
 
     // Detection: re-roll every still-hidden site whose position we've swept past.
-    $sites = $db->prepare('SELECT * FROM province_sites WHERE province_id = ? AND state = "hidden" AND position <= ?');
-    $sites->execute([$cur, $new]);
     $found = [];
     $newProvince = null;
-    foreach ($sites->fetchAll() as $s) {
+    foreach ($world->hiddenSweptSites($cur, $new) as $s) {
         if ($perc + twoDRN() < (int)$s['concealment'] + twoDRN()) {
             continue; // missed — stays concealed, re-rolled next time
         }
         if ($s['type'] === 'road') {
             $nid = generateProvince((int)$player['id'], settlementTerrainToProvince((string)$s['road_terrain']), (int)$prov['level'] + 1, false);
-            linkProvinces((int)$player['id'], $cur, $nid);
-            $db->prepare('UPDATE province_sites SET state = "cleared" WHERE id = ?')->execute([$s['id']]);
-            $nm = $db->prepare('SELECT name, terrain FROM provinces WHERE id = ?');
-            $nm->execute([$nid]);
-            $newProvince = $nm->fetch();
+            $world->link((int)$player['id'], $cur, $nid);
+            $world->setSiteState((int)$s['id'], 'cleared');
+            $newProvince = $world->provinceBrief($nid);
             $found[] = ['type' => 'road', 'name' => $s['name'], 'at' => (int)round((float)$s['position'])];
         } else {
-            $db->prepare('UPDATE province_sites SET state = "found" WHERE id = ?')->execute([$s['id']]);
+            $world->setSiteState((int)$s['id'], 'found');
             $s['state'] = 'found';
             $sp = worldSitePayload($s);
             $sp['at'] = (int)round((float)$s['position']);   // where on the 0-100 sweep it sits
@@ -440,12 +336,10 @@ function handleTravel(): void
     $charId = ensureCharacter((int)$player['id'], $player['username']);
     $pid    = (int)(body()['province_id'] ?? 0);
 
-    $st = db()->prepare('SELECT id FROM provinces WHERE id = ? AND player_id = ?');
-    $st->execute([$pid, $player['id']]);
-    if (!$st->fetchColumn()) {
+    if (!worldRepo()->findProvince($pid, (int)$player['id'])) {
         json(404, ['error' => 'Province not found.']);
     }
-    db()->prepare('UPDATE characters SET current_province_id = ? WHERE id = ?')->execute([$pid, $charId]);
+    worldRepo()->setCurrentProvince($charId, $pid);
     json(200, ['current_province_id' => $pid]);
 }
 
@@ -454,11 +348,9 @@ function handleSiteAdvance(): void
     $player = requirePlayer();
     $charId = ensureCharacter((int)$player['id'], $player['username']);
     $sid    = (int)(body()['site_id'] ?? 0);
-    $db     = db();
+    $world  = worldRepo();
 
-    $st = $db->prepare('SELECT * FROM province_sites WHERE id = ? AND player_id = ?');
-    $st->execute([$sid, $player['id']]);
-    $site = $st->fetch();
+    $site = $world->findSite($sid, (int)$player['id']);
     if (!$site) json(404, ['error' => 'Site not found.']);
     if ($site['type'] === 'road') json(400, ['error' => 'Roads open on their own.']);
     if ($site['state'] !== 'found') json(400, ['error' => 'Nothing to fight here.']);
@@ -468,10 +360,7 @@ function handleSiteAdvance(): void
     $stageNo = (int)$site['progress'];
     if ($stageNo >= $total) json(400, ['error' => 'Already cleared.']);
 
-    $ms = $db->prepare('SELECT * FROM monsters WHERE id = ?');
-    $ms->execute([(int)$stages[$stageNo]]);
-    $monster = $ms->fetch();
-
+    $monster    = monsterRepo()->find((int)$stages[$stageNo]);
     $combat     = resolveFight($player, $charId, $monster);
     $cleared    = false;
     $completion = null;
@@ -479,12 +368,12 @@ function handleSiteAdvance(): void
     if ($combat['outcome'] === 'win') {
         $prog = $stageNo + 1;
         if ($prog >= $total) {
-            $db->prepare('UPDATE province_sites SET progress = ?, state = "cleared" WHERE id = ?')->execute([$prog, $sid]);
+            $world->setSiteProgressState($sid, $prog, 'cleared');
             $completion = applySiteReward($player, $charId, $site);
             $cleared = true;
             $site['state'] = 'cleared';
         } else {
-            $db->prepare('UPDATE province_sites SET progress = ? WHERE id = ?')->execute([$prog, $sid]);
+            $world->setSiteProgress($sid, $prog);
         }
         $site['progress'] = $prog;
     }
@@ -505,25 +394,16 @@ function handleWorld(): void
     $player = requirePlayer();
     $charId = ensureCharacter((int)$player['id'], $player['username']);
     $cur    = ensureHomeProvince((int)$player['id'], $charId);
-    $db     = db();
+    $world  = worldRepo();
 
-    $stmt = $db->prepare('SELECT * FROM provinces WHERE player_id = ? ORDER BY id');
-    $stmt->execute([$player['id']]);
-    $provinces = array_map(fn(array $p) => [
-        'id'           => (int)$p['id'],
-        'name'         => $p['name'],
-        'terrain'      => $p['terrain'],
-        'level'        => (int)$p['level'],
-        'is_home'      => (int)$p['is_home'] === 1,
-        'is_current'   => (int)$p['id'] === $cur,
-        'explored_pct' => (float)$p['explored_pct'],
-    ], $stmt->fetchAll());
+    $provinces = array_map(
+        fn(array $p) => (new Province($p, (int)$p['id'] === $cur))->toArray(),
+        $world->provincesForPlayer((int)$player['id'])
+    );
 
     // Only discovered (found/cleared) sites are revealed to the client.
-    $stmt = $db->prepare('SELECT * FROM province_sites WHERE player_id = ? AND state <> "hidden" ORDER BY province_id, position');
-    $stmt->execute([$player['id']]);
     $sites = [];
-    foreach ($stmt->fetchAll() as $s) {
+    foreach ($world->visibleSites((int)$player['id']) as $s) {
         $sites[(int)$s['province_id']][] = worldSitePayload($s);
     }
 

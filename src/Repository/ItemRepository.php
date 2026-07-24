@@ -44,6 +44,15 @@ final class ItemRepository
         return $this->db->query('SELECT * FROM items')->fetchAll();
     }
 
+    // A random gear item id of the given rarity, or null (for site rewards).
+    public function randomByRarity(string $rarity): ?int
+    {
+        $stmt = $this->db->prepare('SELECT id FROM items WHERE rarity = ? AND kind = "gear" ORDER BY RAND() LIMIT 1');
+        $stmt->execute([$rarity]);
+        $id = $stmt->fetchColumn();
+        return $id !== false ? (int)$id : null;
+    }
+
     // An item definition's display name.
     public function name(int $itemId): string
     {
