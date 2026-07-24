@@ -429,7 +429,31 @@ NPCs.**
 - **No hard lock:** other-race quest-givers can also be present initially (a lone /
   neutral / already-friendly other-race NPC). Own-race skews the home village, but the
   world does NOT forbid early other-race givers.
-- Provinces MAY also contain town/village hubs (own- or other-race).
+- Provinces MAY also contain town/village hubs (own- or other-race) — these are
+  **dwellings** (below).
+
+### Dwellings — populated places you discover  (AGREED)
+
+Exploration turns up not only combat sites (minor / boon / dungeon) and roads, but
+**dwellings** — *populated, race-owned places*:
+
+- **Own-race (human) villages/towns** — friendly hubs with services (Elder / Merchant /
+  Healer / Scholar). Safe to enter. The home village is just the first of these.
+- **Other-race dwellings** (goblin warrens, wolf dens, ant nests, …) — at the
+  **surface** they read as a hostile lair to clear (a combat site); at the
+  **understanding** level they are a **community** — families, a chief, a shaman — you
+  can enter, trade with, quest for, and befriend. This is the "layers of reality" reveal
+  (§1) given a physical home: *the cave that is really a settlement.*
+
+Mechanics:
+- A dwelling is a discoverable site (new `province_sites.type = 'dwelling'`), tied to a
+  **race** and populated from the unified `npcs` table.
+- Whether it presents as "lair to raid" or "place to enter" follows the race's
+  Hostility/attitude (§2) + what you understand — the same duality as individual
+  encounters, scaled to a place.
+- Dwellings **host the quest-givers, tutors, and merchants** of their race; other-race
+  services unlock as you befriend them (a goblin dwelling offers a goblin tutor once
+  Neutral+, §5).
 
 ### Thematic spine
 
@@ -577,6 +601,10 @@ Schema (sketch):
   - `rel_npc      (player_id, npc_id, hostility, trust, PK(player_id,npc_id))` — per known individual
   - Effective attitude = weighted blend (person 8 / site 4 / province 2 / generic 1),
     inheriting parent values for scopes with no row (see §2). Derived stage from the blend.
+- Province generation gains a **`dwelling`** `province_sites.type` (§8): a populated,
+  race-owned place (own-race town hub or other-race warren/den). Carries a `race` and a
+  generated NPC population; the delve/enter flow branches on attitude (lair-to-raid vs
+  community-to-enter). Existing types (minor/boon/dungeon/road) stay.
 - `npcs (id, player_id, race, profession, name, monster_id NULL, settlement_id NULL,
   site_id NULL, province_id NULL, state, created_at)` — the **one unified NPC table**
   (§8): village residents (seeded/generated) AND promoted monster individuals (created
@@ -724,6 +752,11 @@ Then expand race-by-race. (Contradictory truth / Verified / Common come later.)
   level. Revealed facts are logged to a **journal**; memory states = **Remembered +
   Shared** now (Shared = tell an NPC → world reacts); **Verified/Common + contradictory
   truth deferred** to a later layer. ✔
+- **Dwellings** (§8): exploration discovers **populated, race-owned places** (not just
+  combat sites/roads) — own-race town hubs and other-race warrens/dens. Surface = a lair
+  to clear; understanding = a community to enter/trade/quest/befriend (the "cave that's
+  really a settlement" reveal). New `province_sites.type = 'dwelling'`; they host that
+  race's quest-givers/tutors/merchants. ✔
 - **Village, NPCs, quest-givers & quests** (§8): ONE unified `npcs` table (village
   residents + promoted individuals); home village = own-race (human) quest source but
   **no hard lock** — other-race givers may appear initially; quest-givers generate from
