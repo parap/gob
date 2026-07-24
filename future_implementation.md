@@ -281,8 +281,8 @@ Everything the player can *know* is a **fact** attached to a subject, with:
 - **content** — the text/data revealed (`"has pups"`, `"this is a settlement, not a
   lair"`, `"the chief is lying"`).
 - **category / channel** — which key reveals it (see table).
-- **reveal requirement** — an **AND-list** of `skill ≥ n` / `trust ≥ n` conditions
-  that must ALL hold (see grammar below).
+- **reveal requirement** — a **boolean expression** over `skill ≥ n` / `trust ≥ n`
+  conditions (AND / OR / nested — see grammar below).
 
 On every encounter the engine walks the subject's facts, tests each requirement
 against the player's current skills + relationship, and shows the ones that pass. That
@@ -315,12 +315,25 @@ Each channel is driven by a skill or relationship value, so skills do double dut
 Combat skills stay **purely mechanical** (they drive `resolveFight`); the info model
 only *reads* the others.
 
-### Reveal-requirement grammar — AND-list now  (AGREED)
+### Reveal-requirement grammar — full boolean  (AGREED)
 
-A requirement is a list of conditions that must **all** hold (`language_goblin ≥ 3`
-AND `trust(goblin) ≥ 20`). One fixed path per fact. **OR-groups** (alternative paths
-to the same fact — e.g. understand the words *or* read it off their faces with high
-Empathy) are a **later** upgrade.
+A requirement is a **boolean expression** over conditions — **AND, OR, and any
+nesting**, no AND-only limitation. Represented as a small recursive tree:
+- **leaf**: `{skill: "language_goblin", min: 3}` or `{trust: "goblin", min: 20}`
+- `{all: [ … ]}` = AND (every child must hold)
+- `{any: [ … ]}` = OR (at least one child)
+- freely nested.
+
+Example — a goblin secret reachable *either* by understanding the words + trust,
+*or* by pure high Empathy (read off their faces):
+```
+{ any: [
+    { all: [ {skill:"language_goblin", min:3}, {trust:"goblin", min:20} ] },
+    { skill:"empathy", min:8 }
+] }
+```
+The evaluator walks the tree against the player's skills + blended Trust (§2), so the
+same fact can be reached by different builds/playstyles from the start.
 
 ### Player knowledge journal + memory states — Remembered + Shared now  (AGREED)
 
@@ -357,18 +370,66 @@ journal and can be Shared. Skills are both power (mechanics) and keys (perceptio
 
 ---
 
-## 8. Quests & Knowledge  (from ideas.txt §4, to detail later)
+## 8. Village, NPCs, quest-givers & quests  (AGREED)
 
-- **Tiered quest templates** shared across races (same structure, different text):
-  T1 kill/fetch/repair/find → T2 save child/heal sick/catch thief/find lost →
-  T3 settle dispute/reconcile clans/solve murder → T4 change policy/alliance/depose.
-- **×100 content via professions + needs**: tag NPCs Hunter/Shaman/Chief/Merchant/
-  Child/Guard/Farmer; each auto-generates requests from needs (Food/Medicine/
-  Protection/Knowledge/Revenge/Mate/Religion).
-- **Reward = Knowledge**, not (only) gold: e.g. `goblin_culture +1`,
-  `goblin_history +2`. Knowledge unlocks new dialogue/checks.
-- Interrogation (§4) reads from the player's active quests → quests and the
-  mercy/interrogate loop reinforce each other.
+### NPCs — one unified concept  (AGREED)
+
+**One `npcs` table holds ALL notable NPCs** — village residents (chief, merchant,
+scholar-tutor, hunter) *and* promoted monster individuals (a spared + named goblin).
+Each NPC has: `race`, `profession`, a **location** (settlement / site / province),
+`name`, plus its own info-facts (§7), its own relationship (§2 person scope), and the
+quests it offers. Anonymous combat spawns are NOT NPCs — a spawn becomes one only when
+"promoted" (survives + matters). A **village is then just a location populated with
+NPCs.**
+
+### The village / hubs  (AGREED)
+
+- **Home settlement = the player's village**, populated mainly by **your own-race
+  (human) NPCs**.
+- **No hard lock:** other-race quest-givers can also be present initially (a lone /
+  neutral / already-friendly other-race NPC). Own-race skews the home village, but the
+  world does NOT forbid early other-race givers.
+- Provinces MAY also contain town/village hubs (own- or other-race).
+
+### Thematic spine
+
+Home village = where you first see the world **wrong**: the elder gives the classic
+opening — *"goblins are raiding our supplies, clear the cave."* As you spare/befriend
+goblins, **goblin quest-givers become available and reframe the same conflict from the
+other side.** The arc is literally lived through who's willing to give you quests.
+
+### Quest-givers — profession + needs, tier-gated by relationship  (AGREED)
+
+Each NPC generates quests from its **profession + needs** (the ×100-content model):
+Hunter → meat/arrows, Shaman → herbs/rare skull, Chief → a dispute, Merchant → a lost
+caravan, etc. Needs pool: Food / Medicine / Protection / Knowledge / Revenge / Mate /
+Religion. **The tier a giver will offer is gated by relationship stage:**
+
+| Stage | Offers |
+|---|---|
+| Curious | T1 (fetch / kill / find) |
+| Neutral | T1–T2 (save a child, heal the sick) |
+| Friendly | T2–T3 (catch a thief, solve a murder) |
+| Ally | T3–T4 (settle a clan dispute, forge an alliance) |
+
+So better quests are **earned** — no goblin "settle our clan war" until goblins trust you.
+
+### Quests — template → instance  (AGREED)
+
+- **Procedural backbone**: templates in code `{tier, need, objective_type, text,
+  reward_spec}`; hand-authored "special" quests allowed later. `player_quests` holds
+  the concrete instance (giver `npc_id`, target, state, rewards).
+- **Objective types:**
+  - **v1 — build first: kill / fetch / deliver** → resolve against combat, loot,
+    exploration (systems we already have).
+  - **later: find**, then **information objective** (completes when you *learn a
+    tagged fact* — §7: via interrogation, a book, or an NPC telling you), then
+    **social / deduction** quests (gather facts gated by Empathy/Politics/witnesses,
+    then **Share** the conclusion to resolve). Designed now, built after the base loop.
+- **Reward = Knowledge** (+ gold / trust / items): e.g. `goblin_culture +1`. Knowledge
+  unlocks more facts → more reveal-requirements pass → more quests. The loop.
+- Interrogation (§4) and books (§5) surface **clues = facts tagged to active quests**,
+  so the mercy/interrogate/read loops feed quest progress.
 
 ---
 
@@ -385,14 +446,17 @@ Schema (sketch):
   - `rel_npc      (player_id, npc_id, hostility, trust, PK(player_id,npc_id))` — per known individual
   - Effective attitude = weighted blend (person 8 / site 4 / province 2 / generic 1),
     inheriting parent values for scopes with no row (see §2). Derived stage from the blend.
-- `npcs (id, player_id, site_id, monster_id, name, state, created_at)` — persistent
-  NPC *instances*. Needed for the person scope; created lazily when an anonymous
-  monster is "promoted" (spared + interrogated/named). Most spawns never get a row.
+- `npcs (id, player_id, race, profession, name, monster_id NULL, settlement_id NULL,
+  site_id NULL, province_id NULL, state, created_at)` — the **one unified NPC table**
+  (§8): village residents (seeded/generated) AND promoted monster individuals (created
+  lazily on promotion; `monster_id` = the template they came from). Location = whichever
+  of settlement/site/province is set. Anonymous spawns never get a row.
 - `knowledge (player_id, topic, value, PK(player_id,topic))` — quest reward currency.
 - Info model (§7):
   - `info_facts (id, subject_type ENUM(npc_type,npc,site,monster,event), subject_ref,
     category, content, requirement_json)` — authored facts; type-level seeded/in code,
-    instance-level generated when an NPC is promoted. `requirement_json` = AND-list.
+    instance-level generated when an NPC is promoted. `requirement_json` = a boolean
+    expression tree (`all`/`any`/leaf), evaluated recursively.
   - `player_knowledge (player_id, fact_id, state ENUM(remembered,shared), learned_at,
     shared_with NULL, PK(player_id,fact_id))` — the journal. (verified/common later.)
 - `player_quests (id, player_id, race, template_key, target_json, state, reward_json, created_at)`
@@ -422,8 +486,10 @@ Suggested build order (thin vertical slice, goblins only, to prove the loop):
 3. Language skill + Interrogate (generic intel first).
 4. Info model core (§7): `info_facts` + `player_knowledge`, `perceive()`, a handful
    of type-level goblin facts, encounter view layered by skills; Share action.
-5. `player_quests` + one T1 template + Knowledge reward + Trust-from-help.
-6. Wire Interrogate + books to active quests (facts tagged to quests).
+5. Unified `npcs` + home village residents (human quest-givers); `player_quests` with
+   T1 **kill/fetch/deliver** templates + Knowledge/Trust rewards, tier-gated by stage.
+6. Info-objective & social/deduction quests (learn a tagged fact / Share a conclusion);
+   wire Interrogate + books to active quests.
 Then expand race-by-race. (Contradictory truth / Verified / Common come later.)
 
 ---
@@ -446,7 +512,10 @@ Then expand race-by-race. (Contradictory truth / Verified / Common come later.)
 - **Town-in-province generation** — how often provinces spawn a village/town hub,
   and what services they offer.
 - **Info-model authoring & tuning** — how type-level facts are authored/seeded per
-  race, when OR-group requirements get added, and how facts are tagged to quests.
+  race, and how facts are tagged to quests.
+- **Quest/NPC tuning** — which professions & needs ship first; how home-village
+  residents are seeded vs generated; own-race vs other-race quest-giver mix; how
+  province town hubs are populated.
 - **Where Talk/Trade/Quest UI lives** — extend the Exploration/delve flow vs a new tab.
 
 ---
@@ -496,12 +565,19 @@ Then expand race-by-race. (Contradictory truth / Verified / Common come later.)
   gives a small language bump + history/culture/folklore Knowledge + a chance at
   active-quest clues. ✔
 - **Information model** (§7) is the perception framework, designed BEFORE quests
-  (they consume it). Everything knowable = a **fact** on a subject, gated by an
-  **AND-list** requirement over skills + relationship; skills stay mechanical AND act
-  as perception keys (per-channel). Facts are authored at **both type and instance**
+  (they consume it). Everything knowable = a **fact** on a subject, gated by a
+  **boolean requirement** (AND/OR/nested — `all`/`any`/leaf tree) over skills +
+  relationship; skills stay mechanical AND act as perception keys (per-channel). Facts are authored at **both type and instance**
   level. Revealed facts are logged to a **journal**; memory states = **Remembered +
   Shared** now (Shared = tell an NPC → world reacts); **Verified/Common + contradictory
   truth deferred** to a later layer. ✔
+- **Village, NPCs, quest-givers & quests** (§8): ONE unified `npcs` table (village
+  residents + promoted individuals); home village = own-race (human) quest source but
+  **no hard lock** — other-race givers may appear initially; quest-givers generate from
+  profession + needs, tier-gated by relationship stage; quests are procedural
+  templates → instances, reward = Knowledge (+gold/trust/items); **v1 objectives =
+  kill/fetch/deliver**, info-objective + social/deduction quests designed now but built
+  after the base loop. ✔
 - Monsters coming to **teach the player their language** parked (unbelievable);
   language is player-earned. Monster-initiated contact in general is fine later
   once trust exists — player initiates first contact for now. ✔
