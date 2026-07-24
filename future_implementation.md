@@ -138,7 +138,7 @@ weight sum of everything you've done, and it seeds every new first impression. T
 closes the loop: **person → (bleeds up to) site → province → generic → (seeds) the
 next person/site.**
 
-**Cost note:** the *person* scope needs persistent NPC identity (§9) — most mooks
+**Cost note:** the *person* scope needs persistent NPC identity (§10) — most mooks
 never get a person record. A goblin is "promoted" to a known individual only when it
 survives and matters (spared + interrogated/named). Build order: generic → province
 → site → person (**person last — it's the most expensive**).
@@ -233,7 +233,7 @@ a **semi-random** value biased by who they are:
 
 - Native **goblin** teaching goblin-tongue → skews **high** (but only reachable **if
   approached mildly**: Hostility low → Neutral+; a specific known goblin = person
-  scope, §2/§9).
+  scope, §2/§10).
 - Human **village scholar** → skews **low** (traveled scholar / captured informant).
 - Individual spread either way (a rare well-travelled human may know a lot; a feral
   goblin little).
@@ -496,13 +496,75 @@ world (tracks, a note, behaviour patterns); nothing forces the player to follow 
   goblins/ants → the wolves return to their range and stop raiding the sheep. Reward:
   wolf standing / knowledge / maybe a wolf ally, and no massacre.
 
-So **wolves are a parallel questline**, not a tutorial on-ramp (§11). Build note: v1
+So **wolves are a parallel questline**, not a tutorial on-ramp (§12). Build note: v1
 ships the **surface path** (kill/fetch/deliver above); the deeper root-cause path is the
 understanding layer — authored now, built later.
 
 ---
 
-## 9. Likely implementation surface  (TENTATIVE — not finalized)
+## 9. Opening flow / first session  (the vertical-slice target)
+
+A concrete first ~30 minutes that plants the spine (§1) and teaches each system once.
+Doubles as the **acceptance test / build checklist** for the vertical slice: if this
+plays and *feels* right, the slice works. **Goblins only** — no wolves (wolves are a
+parallel questline, §8/§12).
+
+**Setup.** A human adventurer with a home village (the settlement) and a starting hero.
+Mercy stance **OFF**. Nothing happens *to* you — you act.
+
+### Surface layer — what EVERY player gets (complete on its own)
+
+1. **The village (pull).** NPCs present but idle: **Elder**, **Merchant** (shop),
+   **Healer**, **Scholar**. Talk to the Elder *and ask* → the classic T1 quest:
+   *"Goblins are raiding our supplies — clear the cave."* (Introduces: village hub,
+   pull-quests, services. Nothing is pushed.)
+2. **Travel + delve.** Find the goblin cave (a site), start delving. (Existing world.)
+3. **First fights — blind.** The info model shows only the **public** fact: `Goblin.
+   Hostile.` You win, kill, loot. Ordinary RPG. (Combat + info model at baseline.)
+4. **Finish & turn in (pull).** Bring proof to the Elder, collect gold. **The surface
+   game is now complete** — a player can stop here forever and never be told they missed
+   anything.
+
+### The cues sit in the world — no push
+
+Woven through the above, never flagged, for the curious to notice:
+- **Perception** surfaces observed facts that don't fit: children's toys, a sick old
+  goblin, small footprints.
+- Loot includes **untranslatable goblin writings / a book / a scrawled note** — you can
+  hold them, not read them (the itch).
+- Goblin shouts are **consistent, repeated "words"** — clearly a language, not noise.
+
+That's it. No NPC says "you should learn this." *No directions ≠ no cues* (§1).
+
+### Understanding layer — OPT-IN, only a curious player goes here
+
+5. **The itch → experiment.** Nagged by the unreadable notes / repeated words (or just
+   bored of grinding), the player pokes around. The **Scholar** — *if approached* —
+   teaches a little Goblinish for gold + time (silent; never pitches). Books stay
+   unreadable until language passes the literacy threshold (§5). (Introduces: tutors,
+   timed training — all opt-in.)
+6. **First understanding.** With a few words of Goblin, the *same* encounters change:
+   speech renders as fragments (`"...food..."`, `"please..."`); the note becomes partly
+   legible; the journal fills with real information. (Info-model reveal-by-language: the
+   `GRAAAH → words` moment.)
+7. **A different KIND of reward.** With mercy **ON**, you spare a beaten goblin and can
+   **Interrogate** — the corpse that used to pay gold now pays *intelligence*: where the
+   "stolen supplies" actually went, a stash, a name, a reason. The Elder's story was
+   half-true. (Introduces: mercy, interrogation, info-objective — the reframe, earned.)
+8. **The world opens.** Sparing + understanding lowers goblin Hostility; the cave (and
+   others) start showing deeper layers; goblin quest-givers and **multiple-solution**
+   quests (the wolves/sheep chain, §8) become reachable. The loop is self-sustaining.
+
+### Why this is the build target
+
+Beats 1–4 = the surface slice (existing systems + pull-quests + info-model public tier).
+Beats 5–8 = the opt-in slice (tutors, language reveal, mercy, interrogation,
+relationship). Ship **1–4 first** (playable, complete), then **5–8 turns the key**.
+Matches the build order in §10.
+
+---
+
+## 10. Likely implementation surface  (TENTATIVE — not finalized)
 
 Additive, grounded in current code. Details deliberately loose until we build.
 
@@ -532,7 +594,7 @@ Schema (sketch):
   — instances; templates live in PHP code.
 - `characters.mercy TINYINT` — the stance toggle.
 - New skills into `CHARACTER_SKILLS` (character.php): `linguistics/lang_*`, `empathy`,
-  `survival`, `lore/lore_*`. (Global vs per-race granularity still OPEN — see §10.)
+  `survival`, `lore/lore_*`. (Global vs per-race granularity still OPEN — see §11.)
 
 Handlers (sketch):
 - `resolveFight()` gains a post-win branch: apply mercy (spare vs kill vs
@@ -563,7 +625,7 @@ Then expand race-by-race. (Contradictory truth / Verified / Common come later.)
 
 ---
 
-## 10. Open questions / to decide later
+## 11. Open questions / to decide later
 
 - **Skill granularity**: global vs per-race vs hybrid (empathy/survival global,
   language/lore per-race). Leaning hybrid; not decided.
@@ -589,7 +651,7 @@ Then expand race-by-race. (Contradictory truth / Verified / Common come later.)
 
 ---
 
-## 11. Rejected / parked
+## 12. Rejected / parked
 
 - **Monsters approaching to TEACH the player their language** — parked 2026-07-24.
   No believable reason for a just-looted race to seek the player out and gift words.
@@ -617,7 +679,7 @@ Then expand race-by-race. (Contradictory truth / Verified / Common come later.)
   exist in-world ("no directions" ≠ "no cues"). Two is a **starting lens, not a wall** —
   long-term goal is a spectrum of emergent playstyles (trader, tactician, lorekeeper,
   manipulator, peacemaker…) from orthogonal systems; don't hard-wire the binary. ✔
-- **Wolf on-ramp dropped; goblins are the first understanding race** (§1/§8/§11). No
+- **Wolf on-ramp dropped; goblins are the first understanding race** (§1/§8/§12). No
   push — cues only: consistent spoken words, writings, books, sparse notes. Wolves
   become a parallel questline. ✔
 - **Quests can have multiple solutions** (§8): a surface brute path (kill; always
