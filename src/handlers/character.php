@@ -10,8 +10,7 @@ use Gob\Repository\CharacterRepository;
 
 function characterRepo(): CharacterRepository
 {
-    static $repo = null;
-    return $repo ??= new CharacterRepository(db());
+    return \Gob\Repositories::get(CharacterRepository::class);
 }
 
 // Create the character if the player has none yet. Returns character id.
