@@ -27,3 +27,6 @@ composer.phar
 # OS files
 .DS_Store
 Thumbs.db
+
+# Claude Code local working dir (session transcripts, history archive)
+/.claude/

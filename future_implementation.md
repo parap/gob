@@ -33,18 +33,20 @@ actually established.
 
 ---
 
-## 2. Relationship model — TWO axes, not one  (KEY DECISION)
+## 2. Relationship model — TWO axes × FOUR scopes  (KEY DECISION)
 
-A race does not have a single "standing" number. It feels (at least) two separate
-things about the player, moved by different inputs:
+### The two axes
 
-- **Hostility / Fear** — how much the race attacks on sight.
-- **Trust / Liking** — how much the race helps / opens up to the player.
+A race/community/individual does not have a single "standing" number. It feels (at
+least) two separate things about the player, moved by different inputs:
+
+- **Hostility / Fear** — how much they attack on sight.
+- **Trust / Liking** — how much they help / open up to the player.
 
 Rules:
 - **Sparing lowers Hostility only.** Robbing a goblin and leaving it alive does
   NOT make goblins like you — it teaches them you're not a pure exterminator.
-  → Sparing can only move a race from *"kill on sight"* to *"wary coexistence"*.
+  → Sparing can only move Hostility from *"kill on sight"* to *"wary coexistence"*.
   **Sparing CAPS at Neutral.**
 - **Trust/Liking rises only from actually HELPING** — giving food/medicine,
   completing tasks for them, killing what raids *them*. This is the only path
@@ -57,6 +59,49 @@ Stage ladder (from ideas.txt §4): `0 Monster → 1 Curious → 2 Neutral →
 
 (The full CK-style axis set — Respect / Gratitude / Hatred / Debt / Curiosity —
 is a possible later enrichment; start with Hostility + Trust.)
+
+### The four scopes  (who holds the opinion)
+
+Each axis is tracked at **four nested scopes**, most-specific to broadest, each with
+a blend weight:
+
+| Scope | Who | Weight |
+|---|---|---|
+| **Person** | a specific *known* individual (a goblin you've spared/interrogated/named) | ×8 |
+| **Site** | the community of one site/cave | ×4 |
+| **Province** | the tribe across a province | ×2 |
+| **Generic** | the whole race, worldwide — reputation / rumor | ×1 |
+
+**Effective attitude an encounter uses** (computed per axis):
+```
+effective = (8·person + 4·site + 2·province + 1·generic) / 15
+```
+Normalizing by 15 keeps it on the same 0-100 scale, so all mercy/verb thresholds
+work unchanged. (Weights are tunable; the point is person ≫ site > province >
+generic — direct experience outweighs rumor.)
+
+**Inheritance.** A scope with no record yet **inherits its parent's value** (generic
+is the root). So for a total stranger, person = site = province = generic and
+`effective = generic`. As you build specific relations, the inner scopes diverge and
+dominate. This is also how a **new area's first impression** works: unmet goblins in
+a new province start at your *generic* (they've heard of you), then your deeds with
+them push the inner scopes.
+
+**Propagation of a deed** (magnitude M) — full at the most-specific *known* scope,
+then **halving outward** ("more slightly outside"), so word spreads but weakly:
+- Known individual: person `+M`, site `+M/2`, province `+M/4`, generic `+M/8`.
+- Anonymous mook (site is the most specific scope): site `+M`, province `+M/2`,
+  generic `+M/4`.
+
+So local deeds mostly shape local opinion; generic is effectively the diminishing-
+weight sum of everything you've done, and it seeds every new first impression. This
+closes the loop: **person → (bleeds up to) site → province → generic → (seeds) the
+next person/site.**
+
+**Cost note:** the *person* scope needs persistent NPC identity (§8) — most mooks
+never get a person record. A goblin is "promoted" to a known individual only when it
+survives and matters (spared + interrogated/named). Build order: generic → province
+→ site → person (**person last — it's the most expensive**).
 
 ---
 
@@ -177,8 +222,17 @@ Same cave, more options over time = the "I used to be blind" payoff.
 Additive, grounded in current code. Details deliberately loose until we build.
 
 Schema (sketch):
-- `race_relations (player_id, race, hostility, trust, stage, PK(player_id,race))`
-  — the two axes + derived stage.
+- Relationship, one table per scope (each holds the two axes `hostility, trust`;
+  inner scopes only get a row once interacted with — else inherit the parent):
+  - `rel_generic  (player_id, race, hostility, trust, PK(player_id,race))`
+  - `rel_province (player_id, province_id, race, hostility, trust, PK(player_id,province_id,race))`
+  - `rel_site     (player_id, site_id, hostility, trust, PK(player_id,site_id))` — race implied by site
+  - `rel_npc      (player_id, npc_id, hostility, trust, PK(player_id,npc_id))` — per known individual
+  - Effective attitude = weighted blend (person 8 / site 4 / province 2 / generic 1),
+    inheriting parent values for scopes with no row (see §2). Derived stage from the blend.
+- `npcs (id, player_id, site_id, monster_id, name, state, created_at)` — persistent
+  NPC *instances*. Needed for the person scope; created lazily when an anonymous
+  monster is "promoted" (spared + interrogated/named). Most spawns never get a row.
 - `knowledge (player_id, topic, value, PK(player_id,topic))` — quest reward currency.
 - `player_quests (id, player_id, race, template_key, target_json, state, reward_json, created_at)`
   — instances; templates live in PHP code.
@@ -216,6 +270,8 @@ Then expand race-by-race.
 - **Per-race mercy toggle** (spare goblins, cull wolves) — ship global first, this
   is a later UI expansion.
 - **Richer opinion axes** (Respect/Gratitude/Hatred/Debt) beyond Hostility+Trust.
+- **Scope tuning** — blend weights (8/4/2/1), propagation halving fraction, and
+  when exactly an NPC gets "promoted" to a persistent person record.
 - **Where Talk/Trade/Quest UI lives** — extend the Exploration/delve flow vs a new tab.
 
 ---
@@ -236,6 +292,11 @@ Then expand race-by-race.
 2026-07-24:
 - Two-axis relationship (Hostility vs Trust); sparing lowers Hostility only and
   **caps at Neutral**; friendship needs active help. ✔
+- Relationship tracked at **four nested scopes** — person (×8) / site (×4) /
+  province (×2) / generic (×1); effective = weighted blend / 15; inner scopes
+  inherit parent when unset; deeds land full at the most-specific scope and halve
+  outward (word spreads weakly). Person scope needs persistent NPC identity; build
+  generic→province→site→person. ✔
 - Mercy = post-fight stance toggle; sparing forfeits gold + loot-item roll,
   keeps skill training. ✔
 - Unsparable races (undead/constructs) ignore mercy. ✔
