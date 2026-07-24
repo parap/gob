@@ -1,0 +1,17 @@
+{
+    "name": "gob/goblin",
+    "description": "Goblin — a browser fantasy RPG (plain PHP, no framework).",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Gob\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

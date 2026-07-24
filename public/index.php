@@ -2,6 +2,27 @@
 declare(strict_types=1);
 
 // Front controller. Handles /api/* as JSON; everything else is the SPA shell.
+
+// Composer PSR-4 autoloader (Gob\ => src/). New OOP code loads on demand; the
+// legacy procedural handlers below are still require'd explicitly during the
+// incremental migration to classes.
+$autoload = dirname(__DIR__) . '/vendor/autoload.php';
+if (is_file($autoload)) {
+    require $autoload;                       // composer (also loads any deps)
+} else {
+    // Fallback PSR-4 loader (Gob\ => src/) so the app still runs even if
+    // `composer install` hasn't been run. vendor/ is gitignored.
+    spl_autoload_register(static function (string $class): void {
+        $prefix = 'Gob\\';
+        if (str_starts_with($class, $prefix)) {
+            $path = dirname(__DIR__) . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+            if (is_file($path)) {
+                require $path;
+            }
+        }
+    });
+}
+
 require dirname(__DIR__) . '/src/db.php';
 require dirname(__DIR__) . '/src/helpers.php';
 require dirname(__DIR__) . '/src/handlers/auth.php';
