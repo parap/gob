@@ -13,6 +13,11 @@ final class Item
         'defense', 'protection', 'attack', 'penetration', 'perception',
     ];
 
+    // Relative drop weight per rarity (rarer = lower).
+    public const RARITY_WEIGHTS = [
+        'common' => 100, 'uncommon' => 30, 'rare' => 8, 'epic' => 2,
+    ];
+
     // The equipment slots an item of a given slot_type may occupy. Rings and
     // bracelets each have two numbered slots; everything else is 1:1.
     public static function slotsForType(string $type): array
@@ -22,6 +27,45 @@ final class Item
             'bracelet' => ['bracelet_1', 'bracelet_2'],
             default    => [$type],
         };
+    }
+
+    // Brief view of an item *definition* row (no owned-instance context).
+    public static function brief(array $i): array
+    {
+        $bonuses = [];
+        foreach (self::BONUS_KEYS as $k) {
+            $v = (int)$i["bonus_$k"];
+            if ($v !== 0) {
+                $bonuses[$k] = $v;
+            }
+        }
+        return [
+            'item_id'   => (int)$i['id'],
+            'name'      => $i['name'],
+            'slot_type' => $i['slot_type'],
+            'rarity'    => $i['rarity'],
+            'kind'      => $i['kind'],
+            'heal'      => (int)$i['heal_hp'],
+            'bonuses'   => $bonuses,
+        ];
+    }
+
+    // Pick one definition row from $items, weighted by rarity.
+    public static function pickWeighted(array $items): array
+    {
+        $total = 0;
+        foreach ($items as $it) {
+            $total += self::RARITY_WEIGHTS[$it['rarity']] ?? 10;
+        }
+        $r   = random_int(1, $total);
+        $acc = 0;
+        foreach ($items as $it) {
+            $acc += self::RARITY_WEIGHTS[$it['rarity']] ?? 10;
+            if ($r <= $acc) {
+                return $it;
+            }
+        }
+        return $items[array_key_last($items)]; // unreachable; keeps the type happy
     }
 
     public function __construct(private array $row) {}

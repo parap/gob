@@ -31,7 +31,6 @@ require dirname(__DIR__) . '/src/handlers/character.php';
 require dirname(__DIR__) . '/src/handlers/items.php';
 require dirname(__DIR__) . '/src/handlers/loot.php';
 require dirname(__DIR__) . '/src/handlers/combat.php';
-require dirname(__DIR__) . '/src/handlers/explore.php';
 require dirname(__DIR__) . '/src/handlers/world.php';
 require dirname(__DIR__) . '/src/handlers/village.php';
 

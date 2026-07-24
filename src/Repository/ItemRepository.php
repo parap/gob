@@ -38,6 +38,12 @@ final class ItemRepository
                  ->execute([$charId, $itemId]);
     }
 
+    // All item definitions (for the loot table).
+    public function allDefinitions(): array
+    {
+        return $this->db->query('SELECT * FROM items')->fetchAll();
+    }
+
     // An item definition's display name.
     public function name(int $itemId): string
     {

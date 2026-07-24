@@ -47,7 +47,7 @@ function handleAttack(): void
 // Simulate a fight between the hero and a monster row, persist the hero's HP,
 // grant win rewards (gold + skill training + monster loot), and return the
 // result (outcome, rounds, log, hero_hp_after, rewards, monster). Reused by
-// both the arena (handleAttack) and exploration (handleAdvance).
+// both the arena (handleAttack) and exploration (handleSiteAdvance).
 function resolveFight(array $player, int $charId, array $m): array
 {
     $db = db();
