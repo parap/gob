@@ -28,10 +28,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dv) { delveSite(parseInt(dv.dataset.delve)); return; }
         const tv = e.target.closest('[data-travel]');
         if (tv) { travelTo(parseInt(tv.dataset.travel)); return; }
-        const aq = e.target.closest('[data-accept]');
-        if (aq) { acceptQuest(parseInt(aq.dataset.accept)); return; }
+        const ask = e.target.closest('[data-ask]');
+        if (ask) { openQuestDialog(parseInt(ask.dataset.ask)); return; }
         const qt = e.target.closest('[data-turnin]');
         if (qt) { turnInQuest(parseInt(qt.dataset.turnin)); }
+    });
+
+    // Modal / dialogue window: backdrop or [data-modal-close] closes;
+    // [data-quest-accept] accepts the offered quest then closes.
+    $('modal').addEventListener('click', e => {
+        if (e.target.id === 'modal' || e.target.closest('[data-modal-close]')) {
+            closeModal();
+            return;
+        }
+        const qa = e.target.closest('[data-quest-accept]');
+        if (qa) { acceptQuest(parseInt(qa.dataset.questAccept)); closeModal(); }
+    });
+
+    // Esc closes the modal.
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !$('modal').classList.contains('hidden')) closeModal();
     });
 
     // React to manual URL/hash changes (and back/forward) while in-game.

@@ -238,3 +238,32 @@ input:focus { outline: none; border-color: var(--accent); }
 #explore-result { display: block; }
 .find-line { font-size: 0.82rem; color: var(--text); }
 .find-line:first-child { margin-top: 0.25rem; }
+
+/* Modal / dialogue window */
+.modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.65); padding: 1rem;
+}
+.modal-card {
+    width: 100%; max-width: 480px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 1.5rem;
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+}
+.modal-card h2 { margin-top: 0; }
+/* The NPC's speech shown as a clearly-set-off note. */
+.dialog-text {
+    background: var(--bg);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 1rem 1.15rem;
+    margin: 0.9rem 0 1rem;
+    line-height: 1.6;
+    font-size: 1.02rem;
+    font-style: italic;
+    color: var(--text);
+}
+.dialog-text p { margin: 0 0 0.7rem; }
+.dialog-text p:last-child { margin-bottom: 0; }
+.modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1.25rem; }

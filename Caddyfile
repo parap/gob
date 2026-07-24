@@ -4,6 +4,11 @@
 	root * /var/www/html/public
 	encode gzip
 
+	# Dev only: never cache CSS/JS so the browser always gets the latest edit.
+	# (Remove or replace with long-lived caching in production.)
+	@assets path *.css *.js
+	header @assets Cache-Control "no-store"
+
 	# Serves existing static files; sends everything else to index.php,
 	# and proxies .php requests to the php-fpm container.
 	php_fastcgi php:9000

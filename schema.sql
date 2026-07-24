@@ -168,6 +168,11 @@ INSERT IGNORE INTO items (id, name, slot_type, rarity, kind, heal_hp, descriptio
     (17, 'Minor Healing Potion',   'potion', 'common',   'consumable',  50, 'Restores 50 HP.'),
     (18, 'Greater Healing Potion', 'potion', 'uncommon', 'consumable', 150, 'Restores 150 HP.');
 
+-- Quest trophy: proof of a slain goblin (collected, then handed in). Not gear
+-- or consumable — kind 'trophy' means it can only be sold or turned in.
+INSERT IGNORE INTO items (id, name, slot_type, rarity, kind, description) VALUES
+    (19, 'Goblin Ear', 'trophy', 'common', 'trophy', 'Grisly proof of a slain goblin.');
+
 -- Combat sub-stats for the seeded gear. Idempotent UPDATEs (run every time the
 -- schema is applied) so both fresh and existing databases get these values.
 UPDATE items SET bonus_attack = 5, bonus_penetration = 1 WHERE id = 1;   -- Rusty Sword
@@ -195,6 +200,7 @@ UPDATE items SET sell_value = CASE rarity
     WHEN 'rare'     THEN 120
     WHEN 'epic'     THEN 300
     ELSE 10 END;
+UPDATE items SET sell_value = 3 WHERE id = 19;   -- a goblin ear fetches little
 
 -- PvE enemies the hero can fight. loot_item_id + loot_chance (percent) give a
 -- chance to drop that item on a win.

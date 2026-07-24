@@ -181,10 +181,13 @@ function renderCharacter() {
     $('char-inventory').innerHTML = c.inventory.length
         ? c.inventory.map(it => {
             const consumable = it.kind === 'consumable';
-            const info = consumable ? `heals ${it.heal}` : bonusText(it.bonuses);
+            const trophy = it.kind === 'trophy';
+            const info = consumable ? `heals ${it.heal}` : (trophy ? 'trophy' : bonusText(it.bonuses));
             const btn = consumable
                 ? `<button class="btn-mini" data-use="${it.char_item_id}">Use</button>`
-                : `<button class="btn-mini" data-equip="${it.char_item_id}">Equip</button>`;
+                : trophy
+                    ? ''
+                    : `<button class="btn-mini" data-equip="${it.char_item_id}">Equip</button>`;
             const sell = `<button class="btn-mini btn-sell" data-sell="${it.char_item_id}">Sell ${it.sell_value}g</button>`;
             return `<div class="inv-item">
                 <div class="inv-main">
@@ -490,7 +493,7 @@ async function loadVillage() {
 // quest to offer (the blurb is the tooltip). Idle NPCs show a dash.
 function npcRow(npc) {
     const action = npc.offer
-        ? `<button class="btn-mini" data-accept="${npc.id}" title="${esc(npc.offer.blurb)}">Ask</button>`
+        ? `<button class="btn-mini" data-ask="${npc.id}" title="${esc(npc.offer.blurb)}">Ask</button>`
         : `<span class="muted">Nothing for you.</span>`;
     return `<div class="location">
         <div class="loc-info">
@@ -502,13 +505,15 @@ function npcRow(npc) {
 
 function questRow(q) {
     const done = q.state === 'done';
+    const p = q.proof;
+    const proofTxt = p ? ` · proof ${p.have}/${p.need} ${esc(p.item)}` : '';
     const action = done
         ? `<button class="btn-mini" data-turnin="${q.id}">Turn in (+${q.reward_gold}g, +${q.reward_rep} rep)</button>`
         : `<span class="loc-cleared">${q.progress}/${q.target_count}</span>`;
     return `<div class="location ${done ? 'cleared' : ''}">
         <div class="loc-info">
             <span class="loc-name">${esc(q.title)}</span>
-            <span class="loc-next">Slay ${esc(q.target_race)} — ${q.progress}/${q.target_count}${done ? ' ✓' : ''}</span>
+            <span class="loc-next">Slay ${esc(q.target_race)} — ${q.progress}/${q.target_count}${done ? ' ✓' : ''}${proofTxt}</span>
         </div>
         <div class="loc-action">${action}</div>
     </div>`;
@@ -526,12 +531,43 @@ function renderVillage() {
         : '<p class="muted">No quests. Ask around the village.</p>';
 }
 
+// Open the elder's (or any NPC's) quest offer as a dialogue you can accept/decline.
+function openQuestDialog(npcId) {
+    const npc = (state.village && state.village.npcs || []).find(n => n.id === npcId);
+    if (!npc || !npc.offer) return;
+    const paras = (npc.offer.dialog || npc.offer.blurb || '')
+        .split('\n\n').map(p => `<p>${esc(p)}</p>`).join('');
+    openModal(`
+        <h2>${esc(npc.name)} <span class="muted">— ${esc(npc.profession)}</span></h2>
+        <div class="dialog-text">${paras}</div>
+        <p class="muted">Quest: <b>${esc(npc.offer.title)}</b></p>
+        <div class="modal-actions">
+            <button class="btn-ghost" data-modal-close>Decline</button>
+            <button class="btn" data-quest-accept="${npc.id}">Accept</button>
+        </div>`);
+}
+
 async function acceptQuest(npcId) {
     const { status } = await req('POST', '/quests/accept', { npc_id: npcId });
-    if (status === 201 || status === 200) await loadVillage();
+    if (status === 201 || status === 200) await Promise.all([loadVillage(), loadWorld()]);
+}
+
+// ── Reusable modal ───────────────────────────────────────────────────────────
+function openModal(html) {
+    $('modal-card').innerHTML = html;
+    $('modal').classList.remove('hidden');
+}
+function closeModal() {
+    $('modal').classList.add('hidden');
+    $('modal-card').innerHTML = '';
 }
 
 async function turnInQuest(questId) {
-    const { status } = await req('POST', '/quests/turn-in', { quest_id: questId });
-    if (status === 200) { await loadVillage(); await loadSettlements(); }
+    const { status, body } = await req('POST', '/quests/turn-in', { quest_id: questId });
+    if (status === 200) {
+        $('quest-msg').textContent = '';
+        await Promise.all([loadVillage(), loadSettlements(), loadCharacter()]);  // ears consumed
+    } else {
+        $('quest-msg').textContent = (body && body.error) || 'Could not turn in.';
+    }
 }

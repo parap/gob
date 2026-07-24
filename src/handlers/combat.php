@@ -4,6 +4,9 @@ declare(strict_types=1);
 // Safety cap so a fight can never loop forever.
 const MAX_COMBAT_ROUNDS = 60;
 
+// Goblins drop an ear when slain — the tangible "proof" the elder's quest wants.
+const GOBLIN_EAR_ITEM_ID = 19;
+
 function handleMonsters(): void
 {
     requirePlayer();
@@ -139,6 +142,12 @@ function resolveFight(array $player, int $charId, array $m): array
             $nm = $db->prepare('SELECT name FROM items WHERE id = ?');
             $nm->execute([(int)$m['loot_item_id']]);
             $rewards['items'][] = $nm->fetchColumn();
+        }
+
+        // Goblins yield an ear (proof). Guaranteed, on top of the normal loot roll.
+        if (($m['race'] ?? '') === 'goblin') {
+            grantItem($charId, GOBLIN_EAR_ITEM_ID);
+            $rewards['items'][] = 'Goblin Ear';
         }
 
         // Advance any active kill-quests targeting this monster's race.

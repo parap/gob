@@ -27,7 +27,12 @@ const QUEST_TEMPLATES = [
         'target_count' => 5,
         'reward_gold'  => 120,
         'reward_rep'   => 10,
-        'blurb'        => 'Goblins have been raiding our supplies. Slay five of them and bring proof.',
+        'proof_item_id' => 19,   // Goblin Ear — collected on each kill, consumed at turn-in
+        'proof_count'   => 5,
+        'blurb'        => 'Goblins have been raiding our supplies. Slay five of them and bring their ears as proof.',
+        'dialog'       => "Ah — you've the look of someone who's handled a blade before. Good. We could use it.\n\n"
+            . "For weeks now the goblins from the old caves have been creeping down after dark, carrying off our grain and tools. Vicious little things — the watch can't be everywhere at once.\n\n"
+            . "Thin them out. Five should be enough to teach the rest to keep their distance. Bring back proof of the deed and there'll be coin in it for you — and the village won't forget the favour.",
     ],
 ];
 
@@ -87,7 +92,12 @@ function npcPayload(int $playerId, array $n): array
         'name'       => $n['name'],
         'race'       => $n['race'],
         'profession' => $n['profession'],
-        'offer'      => $offer ? ['key' => $offer['key'], 'title' => $offer['title'], 'blurb' => $offer['blurb']] : null,
+        'offer'      => $offer ? [
+            'key'    => $offer['key'],
+            'title'  => $offer['title'],
+            'blurb'  => $offer['blurb'],
+            'dialog' => $offer['dialog'] ?? $offer['blurb'],
+        ] : null,
     ];
 }
 
@@ -112,7 +122,36 @@ function handleNpcs(): void
     ]);
 }
 
-function questPayload(array $q): array
+// How many of the given item the player's character currently owns.
+function ownedItemCount(int $playerId, int $itemId): int
+{
+    $stmt = db()->prepare(
+        'SELECT COUNT(*) FROM character_items ci
+         JOIN characters c ON c.id = ci.character_id
+         WHERE c.player_id = ? AND ci.item_id = ?'
+    );
+    $stmt->execute([$playerId, $itemId]);
+    return (int)$stmt->fetchColumn();
+}
+
+// The proof requirement for a quest, with how many the player currently holds
+// (null when the quest needs no tangible proof).
+function questProof(int $playerId, array $q): ?array
+{
+    $t = QUEST_TEMPLATES[$q['template_key']] ?? null;
+    if (!$t || empty($t['proof_item_id'])) {
+        return null;
+    }
+    $nm = db()->prepare('SELECT name FROM items WHERE id = ?');
+    $nm->execute([(int)$t['proof_item_id']]);
+    return [
+        'item'  => $nm->fetchColumn(),
+        'need'  => (int)$t['proof_count'],
+        'have'  => ownedItemCount($playerId, (int)$t['proof_item_id']),
+    ];
+}
+
+function questPayload(int $playerId, array $q): array
 {
     return [
         'id'           => (int)$q['id'],
@@ -124,6 +163,7 @@ function questPayload(array $q): array
         'reward_gold'  => (int)$q['reward_gold'],
         'reward_rep'   => (int)$q['reward_rep'],
         'state'        => $q['state'],
+        'proof'        => questProof($playerId, $q),
     ];
 }
 
@@ -134,8 +174,9 @@ function handleQuests(): void
     $stmt = db()->prepare(
         "SELECT * FROM player_quests WHERE player_id = ? AND state <> 'turned_in' ORDER BY id"
     );
-    $stmt->execute([(int)$player['id']]);
-    json(200, ['quests' => array_map('questPayload', $stmt->fetchAll())]);
+    $pid = (int)$player['id'];
+    $stmt->execute([$pid]);
+    json(200, ['quests' => array_map(fn(array $q) => questPayload($pid, $q), $stmt->fetchAll())]);
 }
 
 // POST /api/quests/accept {npc_id} — the named NPC hands over their quest.
@@ -166,11 +207,46 @@ function handleQuestAccept(): void
         $pid, $npcId, $offer['key'], $offer['title'], $offer['objective'],
         $offer['target_race'], $offer['target_count'], $offer['reward_gold'], $offer['reward_rep'],
     ]);
+    $qid = (int)db()->lastInsertId();   // capture BEFORE any other INSERT below
 
-    $qid = (int)db()->lastInsertId();
-    $q   = db()->prepare('SELECT * FROM player_quests WHERE id = ?');
+    // Give the goblin cull a concrete place to happen: a guaranteed, already-
+    // revealed Goblin Cave in the home province (kills there tick the quest).
+    if ($offer['key'] === 'clear_goblins') {
+        $charId = ensureCharacter($pid, (string)$player['username']);
+        spawnGoblinCave($pid, $charId);
+    }
+
+    $q = db()->prepare('SELECT * FROM player_quests WHERE id = ?');
     $q->execute([$qid]);
-    json(201, ['quest' => questPayload($q->fetch())]);
+    json(201, ['quest' => questPayload($pid, $q->fetch())]);
+}
+
+// Ensure the player has a revealed "Goblin Cave" site in their home province.
+// Reuses the existing province-site/delve system; five goblin stages, so
+// clearing it satisfies the "slay 5" quest. Idempotent (one cave per player).
+function spawnGoblinCave(int $playerId, int $charId): void
+{
+    $homeId = ensureHomeProvince($playerId, $charId);
+    $db = db();
+
+    $chk = $db->prepare("SELECT id FROM province_sites WHERE player_id = ? AND name = 'Goblin Cave' LIMIT 1");
+    $chk->execute([$playerId]);
+    if ($chk->fetchColumn()) {
+        return;
+    }
+
+    $stages = [1, 1, 1, 1, 5]; // four Goblin Scouts + a Goblin Warlord (all race 'goblin')
+    $db->prepare(
+        'INSERT INTO province_sites
+            (province_id, player_id, type, name, position, concealment, state, progress,
+             reward_gold, bonus_gold_rate, bonus_wood_rate, bonus_stone_rate, bonus_regen,
+             reward_item_id, road_terrain, stages_json, description)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+    )->execute([
+        $homeId, $playerId, 'minor', 'Goblin Cave', 50.0, 0, 'found', 0,
+        40, 0, 0, 0, 0, null, null, json_encode($stages),
+        'The old caves the goblins raid from. Elder Maroun wants them cleared.',
+    ]);
 }
 
 // POST /api/quests/turn-in {quest_id} — claim rewards for a completed quest.
@@ -188,6 +264,25 @@ function handleQuestTurnIn(): void
     }
     if ($q['state'] !== 'done') {
         json(400, ['error' => 'That quest is not complete yet.']);
+    }
+
+    // Require and consume the tangible proof, if the template asks for one.
+    $t = QUEST_TEMPLATES[$q['template_key']] ?? null;
+    if ($t && !empty($t['proof_item_id'])) {
+        $itemId = (int)$t['proof_item_id'];
+        $need   = (int)$t['proof_count'];
+        if (ownedItemCount($pid, $itemId) < $need) {
+            $nm = db()->prepare('SELECT name FROM items WHERE id = ?');
+            $nm->execute([$itemId]);
+            $itemName = (string)$nm->fetchColumn();
+            json(400, ['error' => "You lack the proof — bring {$need} {$itemName}(s)."]);
+        }
+        $charId = ensureCharacter($pid, (string)$player['username']);
+        // $need is a trusted int from the template, so it's safe to inline (avoids
+        // driver-specific issues binding a parameter in LIMIT).
+        db()->prepare(
+            'DELETE FROM character_items WHERE character_id = ? AND item_id = ? ORDER BY id LIMIT ' . (int)$need
+        )->execute([$charId, $itemId]);
     }
 
     // Gold into the home settlement; reputation onto the village.
