@@ -98,7 +98,7 @@ weight sum of everything you've done, and it seeds every new first impression. T
 closes the loop: **person → (bleeds up to) site → province → generic → (seeds) the
 next person/site.**
 
-**Cost note:** the *person* scope needs persistent NPC identity (§8) — most mooks
+**Cost note:** the *person* scope needs persistent NPC identity (§9) — most mooks
 never get a person record. A goblin is "promoted" to a known individual only when it
 survives and matters (spared + interrogated/named). Build order: generic → province
 → site → person (**person last — it's the most expensive**).
@@ -193,7 +193,7 @@ a **semi-random** value biased by who they are:
 
 - Native **goblin** teaching goblin-tongue → skews **high** (but only reachable **if
   approached mildly**: Hostility low → Neutral+; a specific known goblin = person
-  scope, §2/§8).
+  scope, §2/§9).
 - Human **village scholar** → skews **low** (traveled scholar / captured informant).
 - Individual spread either way (a rare well-travelled human may know a lot; a feral
   goblin little).
@@ -228,7 +228,7 @@ Once your skill in a tongue exceeds ~a mid ("readable literacy") threshold, you 
 
 - a **small language bump** (reading practice; also diminishing — a book has its own
   low ceiling).
-- **Knowledge** in history / culture / folklore (feeds §7 and dialogue checks).
+- **Knowledge** in history / culture / folklore (feeds the info model §7 and §8).
 - a **chance to help an active quest** — same "relevant clue" mechanic as Interrogate
   (§4): a book may contain something a current quest needs.
 
@@ -264,7 +264,100 @@ Same cave, more options over time = the "I used to be blind" payoff.
 
 ---
 
-## 7. Quests & Knowledge  (from ideas.txt §4, to detail later)
+## 7. Information model — the perception framework  (AGREED)
+
+The framework the world's knowledge runs on, and the substrate everything else
+(NPCs, places, combat reads, quests) plugs into. **Skills are not replaced by it** —
+they keep their mechanical jobs (combat resolves off skills; Survival heals; tutoring
+raises numbers). The info model is a **read-layer** that uses skills + relationship as
+*keys* to decide what the player perceives. It's what actually powers §6 (verbs
+multiply), place layers, skill-as-sense checks, tactical reads, and interrogation/book
+clues.
+
+### The atom — an "info fact"
+
+Everything the player can *know* is a **fact** attached to a subject, with:
+- **subject** — an NPC type, a specific NPC, a site, a monster, or an event.
+- **content** — the text/data revealed (`"has pups"`, `"this is a settlement, not a
+  lair"`, `"the chief is lying"`).
+- **category / channel** — which key reveals it (see table).
+- **reveal requirement** — an **AND-list** of `skill ≥ n` / `trust ≥ n` conditions
+  that must ALL hold (see grammar below).
+
+On every encounter the engine walks the subject's facts, tests each requirement
+against the player's current skills + relationship, and shows the ones that pass. That
+one rule reproduces "same wolf, four encounters", "the cave is really a village", and
+"the chief is lying" — all as data, no bespoke code per case.
+
+### Granularity — BOTH type and instance  (AGREED)
+
+- **Type-level** facts are shared by all of a race ("goblins keep their young in the
+  deep chambers"). Cheap; deliver the general "I was blind about goblins" reveal.
+- **Instance-level** facts belong to a specific *known* NPC (its name, a personal
+  secret, this shaman's grudge) and ride the **person scope** (§2). Most mooks carry
+  only type facts; an NPC gains instance facts once "promoted" to a person record.
+
+### Channels — skills are the keys
+
+Each channel is driven by a skill or relationship value, so skills do double duty
+(power *and* perception key):
+
+| Channel | Key | Example fact |
+|---|---|---|
+| Observation | Perception | "tracks of small feet lead deeper" |
+| Emotion / intent | Empathy | "(scared)", "(he's lying)" |
+| Speech | Language(race) | `"Please don't kill us."` |
+| Nature / lore | Lore / Biology | "this one is a shaman, not a warrior" |
+| Domain checks | Botany / Medicine / Politics | "(these berries are poisonous)" |
+| Tactical | Tactics | "archer + commander; win chance 73%" |
+| Confidential | Trust(race) — the **4-scope blend** (§2) | "we never told humans this story" |
+
+Combat skills stay **purely mechanical** (they drive `resolveFight`); the info model
+only *reads* the others.
+
+### Reveal-requirement grammar — AND-list now  (AGREED)
+
+A requirement is a list of conditions that must **all** hold (`language_goblin ≥ 3`
+AND `trust(goblin) ≥ 20`). One fixed path per fact. **OR-groups** (alternative paths
+to the same fact — e.g. understand the words *or* read it off their faces with high
+Empathy) are a **later** upgrade.
+
+### Player knowledge journal + memory states — Remembered + Shared now  (AGREED)
+
+A revealed fact is logged to the player's **knowledge journal** with a state:
+- **Remembered** — you perceived it (baseline; in the journal).
+- **Shared** — you **told an NPC** this fact. An *action with consequences*: shifts
+  relationships, opens quests, changes the world (tell a goblin "your chief is lying";
+  tell a lord "the goblins have your artifact").
+- **Verified** and **Common knowledge** are **deferred** — they arrive with the
+  contradictory-truth layer below.
+
+### Contradictory truth — LATER layer  (AGREED, deferred)
+
+Some subjects carry *competing* claims from different sources ("humans murdered us" vs
+"humans defended themselves"). You hold both as unverified **claims**; the real truth
+is another fact gated behind higher requirements (`History + Archives/books +
+Witnesses`) that **Verifies** one. Until then you act on uncertain info. Deferred — it
+needs the Verified state and books/archives (§5) in place first.
+
+### How it attaches to the rest
+
+- **NPC/monster encounter view** = the facts that currently pass, grouped by channel.
+  This *is* §6's verb/info escalation, now data-driven.
+- **Sites/places** carry observation/lore facts → the "layers of reality" (a lair that
+  is really a settlement).
+- **Pre-fight** Tactics facts (composition, win %).
+- **Quests consume facts:** interrogation clues and book clues are just **facts tagged
+  to a quest**; revealing/(later)Verifying them advances it. This is *why* the info
+  model is designed before quests — quests will read from it.
+
+**One-line framework:** *everything knowable = a fact on a subject, gated by an
+AND-requirement over skills + relationship; once perceived it's Remembered in the
+journal and can be Shared. Skills are both power (mechanics) and keys (perception).*
+
+---
+
+## 8. Quests & Knowledge  (from ideas.txt §4, to detail later)
 
 - **Tiered quest templates** shared across races (same structure, different text):
   T1 kill/fetch/repair/find → T2 save child/heal sick/catch thief/find lost →
@@ -279,7 +372,7 @@ Same cave, more options over time = the "I used to be blind" payoff.
 
 ---
 
-## 8. Likely implementation surface  (TENTATIVE — not finalized)
+## 9. Likely implementation surface  (TENTATIVE — not finalized)
 
 Additive, grounded in current code. Details deliberately loose until we build.
 
@@ -296,11 +389,17 @@ Schema (sketch):
   NPC *instances*. Needed for the person scope; created lazily when an anonymous
   monster is "promoted" (spared + interrogated/named). Most spawns never get a row.
 - `knowledge (player_id, topic, value, PK(player_id,topic))` — quest reward currency.
+- Info model (§7):
+  - `info_facts (id, subject_type ENUM(npc_type,npc,site,monster,event), subject_ref,
+    category, content, requirement_json)` — authored facts; type-level seeded/in code,
+    instance-level generated when an NPC is promoted. `requirement_json` = AND-list.
+  - `player_knowledge (player_id, fact_id, state ENUM(remembered,shared), learned_at,
+    shared_with NULL, PK(player_id,fact_id))` — the journal. (verified/common later.)
 - `player_quests (id, player_id, race, template_key, target_json, state, reward_json, created_at)`
   — instances; templates live in PHP code.
 - `characters.mercy TINYINT` — the stance toggle.
 - New skills into `CHARACTER_SKILLS` (character.php): `linguistics/lang_*`, `empathy`,
-  `survival`, `lore/lore_*`. (Global vs per-race granularity still OPEN — see §9.)
+  `survival`, `lore/lore_*`. (Global vs per-race granularity still OPEN — see §10.)
 
 Handlers (sketch):
 - `resolveFight()` gains a post-win branch: apply mercy (spare vs kill vs
@@ -308,21 +407,28 @@ Handlers (sketch):
 - New `race.php`: relation read/update, stage thresholds, verb-gating.
 - New `quests.php`: template instantiation, completion → Knowledge + Trust.
 - Interrogate endpoint: consult active `player_quests`, roll for relevant intel.
-- Monster/site payloads: layer visible info by relation + skills.
+- New `perception.php` (info model): `perceive($subject)` evaluates `info_facts`
+  against the player's skills + blended Trust, returns the passing facts by channel,
+  and logs newly-seen ones to `player_knowledge` (Remembered). Used by monster/site
+  payloads and the pre-fight Tactics read.
+- Monster/site payloads: call `perceive()` so visible info layers by relation + skills.
 - Routes: `POST /api/combat/finish`, `POST /api/combat/interrogate`,
-  `POST /api/race/talk`, `GET /api/quests`, `POST /api/quests/complete` (names TBD).
+  `POST /api/race/talk`, `GET /api/knowledge` (journal), `POST /api/knowledge/share`
+  (tell an NPC a fact), `GET /api/quests`, `POST /api/quests/complete` (names TBD).
 
 Suggested build order (thin vertical slice, goblins only, to prove the loop):
 1. `mercy` stance + two-axis `race_relations` + spare-lowers-Hostility (caps Neutral).
 2. Mercy window with Finish (normal kill) + random fanatics.
 3. Language skill + Interrogate (generic intel first).
-4. `player_quests` + one T1 template + Knowledge reward + Trust-from-help.
-5. Wire Interrogate to active quests.
-Then expand race-by-race.
+4. Info model core (§7): `info_facts` + `player_knowledge`, `perceive()`, a handful
+   of type-level goblin facts, encounter view layered by skills; Share action.
+5. `player_quests` + one T1 template + Knowledge reward + Trust-from-help.
+6. Wire Interrogate + books to active quests (facts tagged to quests).
+Then expand race-by-race. (Contradictory truth / Verified / Common come later.)
 
 ---
 
-## 9. Open questions / to decide later
+## 10. Open questions / to decide later
 
 - **Skill granularity**: global vs per-race vs hybrid (empathy/survival global,
   language/lore per-race). Leaning hybrid; not decided.
@@ -339,11 +445,13 @@ Then expand race-by-race.
   curve (gap fraction per session), and the book "readable literacy" threshold value.
 - **Town-in-province generation** — how often provinces spawn a village/town hub,
   and what services they offer.
+- **Info-model authoring & tuning** — how type-level facts are authored/seeded per
+  race, when OR-group requirements get added, and how facts are tagged to quests.
 - **Where Talk/Trade/Quest UI lives** — extend the Exploration/delve flow vs a new tab.
 
 ---
 
-## 10. Rejected / parked
+## 11. Rejected / parked
 
 - **Monsters approaching to TEACH the player their language** — parked 2026-07-24.
   No believable reason for a just-looted race to seek the player out and gift words.
@@ -387,6 +495,13 @@ Then expand race-by-race.
 - **Books** (§5): unlocked once language passes a mid literacy threshold; each book
   gives a small language bump + history/culture/folklore Knowledge + a chance at
   active-quest clues. ✔
+- **Information model** (§7) is the perception framework, designed BEFORE quests
+  (they consume it). Everything knowable = a **fact** on a subject, gated by an
+  **AND-list** requirement over skills + relationship; skills stay mechanical AND act
+  as perception keys (per-channel). Facts are authored at **both type and instance**
+  level. Revealed facts are logged to a **journal**; memory states = **Remembered +
+  Shared** now (Shared = tell an NPC → world reacts); **Verified/Common + contradictory
+  truth deferred** to a later layer. ✔
 - Monsters coming to **teach the player their language** parked (unbelievable);
   language is player-earned. Monster-initiated contact in general is fine later
   once trust exists — player initiates first contact for now. ✔
