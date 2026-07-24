@@ -9,6 +9,8 @@ const state = {
     character: null,
     monsters: [],
     world: null,
+    village: null,   // { npcs, reputation }
+    quests: [],
     ticker: null,    // setInterval handle for the resource counter
 };
 

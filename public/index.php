@@ -12,6 +12,7 @@ require dirname(__DIR__) . '/src/handlers/loot.php';
 require dirname(__DIR__) . '/src/handlers/combat.php';
 require dirname(__DIR__) . '/src/handlers/explore.php';
 require dirname(__DIR__) . '/src/handlers/world.php';
+require dirname(__DIR__) . '/src/handlers/village.php';
 
 $path   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -41,6 +42,10 @@ if (str_starts_with($path, '/api/')) {
             'POST /api/world/explore'     => handleProvinceExplore(),
             'POST /api/world/travel'      => handleTravel(),
             'POST /api/world/sites/advance' => handleSiteAdvance(),
+            'GET /api/npcs'           => handleNpcs(),
+            'GET /api/quests'         => handleQuests(),
+            'POST /api/quests/accept' => handleQuestAccept(),
+            'POST /api/quests/turn-in'=> handleQuestTurnIn(),
             default                   => json(404, ['error' => 'Not found.']),
         };
     } catch (Throwable $e) {

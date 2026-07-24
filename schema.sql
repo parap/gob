@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS settlements (
     capacity_wood       BIGINT UNSIGNED NOT NULL DEFAULT 10000,
     capacity_stone      BIGINT UNSIGNED NOT NULL DEFAULT 10000,
 
+    reputation          INT NOT NULL DEFAULT 0,   -- village standing (own-race Trust)
+
     last_tick           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
@@ -372,4 +374,47 @@ CREATE TABLE IF NOT EXISTS province_sites (
     KEY idx_prov (province_id, state),
     FOREIGN KEY (province_id) REFERENCES provinces(id) ON DELETE CASCADE,
     FOREIGN KEY (player_id)   REFERENCES players(id)   ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================================
+-- Village NPCs & quests (the "understanding" RPG layer — first slice).
+-- ============================================================================
+
+-- Notable NPCs, unified: village residents now, promoted monster individuals
+-- later. Per-player world, generated lazily. Location = whichever of
+-- settlement/site/province is set. monster_id = the template a promoted NPC
+-- came from (NULL for born residents).
+CREATE TABLE IF NOT EXISTS npcs (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    player_id     INT UNSIGNED NOT NULL,
+    race          VARCHAR(24)  NOT NULL DEFAULT 'human',
+    profession    VARCHAR(24)  NOT NULL,
+    name          VARCHAR(64)  NOT NULL,
+    monster_id    INT UNSIGNED NULL,
+    settlement_id INT UNSIGNED NULL,
+    site_id       INT UNSIGNED NULL,
+    province_id   INT UNSIGNED NULL,
+    state         VARCHAR(16)  NOT NULL DEFAULT 'active',
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_npc_player (player_id),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Quest instances the player has accepted. Templates live in PHP (village.php).
+CREATE TABLE IF NOT EXISTS player_quests (
+    id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    player_id    INT UNSIGNED NOT NULL,
+    giver_npc_id INT UNSIGNED NULL,
+    template_key VARCHAR(48)  NOT NULL,
+    title        VARCHAR(128) NOT NULL,
+    objective    VARCHAR(24)  NOT NULL,          -- 'kill' (only type so far)
+    target_race  VARCHAR(24)  NULL,              -- e.g. 'goblin'
+    target_count INT UNSIGNED NOT NULL DEFAULT 1,
+    progress     INT UNSIGNED NOT NULL DEFAULT 0,
+    reward_gold  INT UNSIGNED NOT NULL DEFAULT 0,
+    reward_rep   INT UNSIGNED NOT NULL DEFAULT 0,
+    state        ENUM('active','done','turned_in') NOT NULL DEFAULT 'active',
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_quest_player (player_id, state),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

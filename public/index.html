@@ -52,6 +52,7 @@
     <div class="game">
         <nav class="game-tabs">
             <button class="game-tab active" data-panel="settlement">Settlement</button>
+            <button class="game-tab" data-panel="village">Village</button>
             <button class="game-tab" data-panel="character">Character</button>
             <button class="game-tab" data-panel="adventure">Adventure</button>
             <button class="game-tab" data-panel="exploration">Exploration</button>
@@ -72,6 +73,16 @@
                     <tr><td>Wood</td>  <td id="g-wood">0</td>  <td id="rate-wood">0</td></tr>
                     <tr><td>Stone</td> <td id="g-stone">0</td> <td id="rate-stone">0</td></tr>
                 </table>
+            </div>
+        </div>
+
+        <div class="game-panel" data-panel="village">
+            <div class="card">
+                <h2>Village <span id="village-rep" class="muted"></span></h2>
+                <p class="muted">The people of your home village. Talk to them.</p>
+                <div id="npc-list" class="location-list"></div>
+                <h3>Quests</h3>
+                <div id="quest-list" class="location-list"><p class="muted">No quests yet.</p></div>
             </div>
         </div>
 

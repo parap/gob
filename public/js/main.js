@@ -27,7 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const dv = e.target.closest('[data-delve]');
         if (dv) { delveSite(parseInt(dv.dataset.delve)); return; }
         const tv = e.target.closest('[data-travel]');
-        if (tv) { travelTo(parseInt(tv.dataset.travel)); }
+        if (tv) { travelTo(parseInt(tv.dataset.travel)); return; }
+        const aq = e.target.closest('[data-accept]');
+        if (aq) { acceptQuest(parseInt(aq.dataset.accept)); return; }
+        const qt = e.target.closest('[data-turnin]');
+        if (qt) { turnInQuest(parseInt(qt.dataset.turnin)); }
     });
 
     // React to manual URL/hash changes (and back/forward) while in-game.

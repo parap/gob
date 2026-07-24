@@ -1,6 +1,6 @@
 // The in-game view: load settlements and keep resources ticking.
 
-const GAME_PANELS = ['settlement', 'character', 'adventure', 'exploration'];
+const GAME_PANELS = ['settlement', 'village', 'character', 'adventure', 'exploration'];
 
 function switchGamePanel(name) {
     if (!GAME_PANELS.includes(name)) name = 'settlement';
@@ -19,7 +19,7 @@ async function enterGame() {
     $('topbar-username').textContent = state.username;
     showScreen('game');
     switchGamePanel(location.hash.slice(1) || 'settlement');
-    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadWorld()]);
+    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadWorld(), loadVillage()]);
     startTicker();
 }
 
@@ -55,6 +55,7 @@ async function fight(monsterId) {
     setCharacter(body.character);   // hp/skills/loot already updated server-side
     renderCharacter();
     await loadSettlements();            // gold reward may have landed
+    loadVillage();                      // a kill may have advanced a quest
     renderCombat(body);
 }
 
@@ -416,7 +417,7 @@ async function delveSite(siteId) {
     if (status !== 200) return;
     setCharacter(body.character);
     renderCharacter();
-    await Promise.all([loadWorld(), loadSettlements()]);
+    await Promise.all([loadWorld(), loadSettlements(), loadVillage()]);
 
     // Full battle log + loot, right here on the Exploration tab.
     renderCombat(body.combat, 'explore-log');
@@ -474,4 +475,63 @@ function updateResources() {
 function startTicker() {
     if (state.ticker) clearInterval(state.ticker);
     state.ticker = setInterval(() => { updateResources(); renderVitals(); }, 1000);
+}
+
+// ── Village: resident NPCs + quests ──────────────────────────────────────────
+
+async function loadVillage() {
+    const [n, q] = await Promise.all([req('GET', '/npcs'), req('GET', '/quests')]);
+    if (n.status === 200) state.village = n.body;
+    if (q.status === 200) state.quests = q.body.quests || [];
+    renderVillage();
+}
+
+// One NPC row: shows name + profession, and an "Ask" button when they have a
+// quest to offer (the blurb is the tooltip). Idle NPCs show a dash.
+function npcRow(npc) {
+    const action = npc.offer
+        ? `<button class="btn-mini" data-accept="${npc.id}" title="${esc(npc.offer.blurb)}">Ask</button>`
+        : `<span class="muted">Nothing for you.</span>`;
+    return `<div class="location">
+        <div class="loc-info">
+            <span class="loc-name">${esc(npc.name)} <em>${esc(npc.profession)}</em></span>
+        </div>
+        <div class="loc-action">${action}</div>
+    </div>`;
+}
+
+function questRow(q) {
+    const done = q.state === 'done';
+    const action = done
+        ? `<button class="btn-mini" data-turnin="${q.id}">Turn in (+${q.reward_gold}g, +${q.reward_rep} rep)</button>`
+        : `<span class="loc-cleared">${q.progress}/${q.target_count}</span>`;
+    return `<div class="location ${done ? 'cleared' : ''}">
+        <div class="loc-info">
+            <span class="loc-name">${esc(q.title)}</span>
+            <span class="loc-next">Slay ${esc(q.target_race)} — ${q.progress}/${q.target_count}${done ? ' ✓' : ''}</span>
+        </div>
+        <div class="loc-action">${action}</div>
+    </div>`;
+}
+
+function renderVillage() {
+    const v = state.village;
+    if (v) {
+        $('village-rep').textContent = `· reputation ${v.reputation}`;
+        $('npc-list').innerHTML = (v.npcs || []).map(npcRow).join('');
+    }
+    const quests = state.quests || [];
+    $('quest-list').innerHTML = quests.length
+        ? quests.map(questRow).join('')
+        : '<p class="muted">No quests. Ask around the village.</p>';
+}
+
+async function acceptQuest(npcId) {
+    const { status } = await req('POST', '/quests/accept', { npc_id: npcId });
+    if (status === 201 || status === 200) await loadVillage();
+}
+
+async function turnInQuest(questId) {
+    const { status } = await req('POST', '/quests/turn-in', { quest_id: questId });
+    if (status === 200) { await loadVillage(); await loadSettlements(); }
 }

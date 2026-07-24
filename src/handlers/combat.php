@@ -140,6 +140,9 @@ function resolveFight(array $player, int $charId, array $m): array
             $nm->execute([(int)$m['loot_item_id']]);
             $rewards['items'][] = $nm->fetchColumn();
         }
+
+        // Advance any active kill-quests targeting this monster's race.
+        advanceKillQuests((int)$player['id'], (string)($m['race'] ?? ''));
     }
 
     return [
