@@ -261,7 +261,9 @@ function maybeRaid(array $player, int $charId): ?array
     $boss = monsterRepo()->find((int)$stages[array_rand($stages)]);
     if (!$boss) return null;
 
-    $res      = resolveFight($player, $charId, $boss);
+    // The raiders came from that dungeon, so what you do to them is remembered
+    // by its community first.
+    $res      = resolveFight($player, $charId, $boss, (int)$dun['id']);
     $lostSite = null;
     if ($res['outcome'] === 'loss') {
         if ($bs = $world->randomClearedBoon((int)$player['id'])) {
@@ -361,7 +363,7 @@ function handleSiteAdvance(): void
     if ($stageNo >= $total) json(400, ['error' => 'Already cleared.']);
 
     $monster    = monsterRepo()->find((int)$stages[$stageNo]);
-    $combat     = resolveFight($player, $charId, $monster);
+    $combat     = resolveFight($player, $charId, $monster, $sid);
     $cleared    = false;
     $completion = null;
 

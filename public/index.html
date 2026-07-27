@@ -61,6 +61,9 @@
         <!-- Always-visible vitals, shown on every tab. -->
         <div class="card vitals-card">
             <div id="char-vitals" class="vitals"></div>
+            <!-- An enemy spared but not yet finished off — shown on every tab,
+                 since the window runs out wherever the player happens to be. -->
+            <div id="mercy-window" class="mercy-bar"></div>
         </div>
 
         <div class="game-panel active" data-panel="settlement">
@@ -100,6 +103,8 @@
                 <div id="char-substats" class="stat-grid"></div>
                 <h3>Skills</h3>
                 <div id="char-skills" class="skill-list"></div>
+                <h3>Standing</h3>
+                <div id="char-standing" class="skill-list"></div>
                 <h3>Equipment</h3>
                 <div id="char-equipment" class="slot-grid"></div>
                 <h3>Backpack</h3>
@@ -111,6 +116,10 @@
             <div class="card">
                 <h2>Adventure</h2>
                 <p class="muted">Fight monsters for gold, loot, and skill training.</p>
+                <div class="loot-bar">
+                    <button id="btn-mercy" class="btn-ghost">Mercy: off</button>
+                    <span id="mercy-note" class="muted"></span>
+                </div>
                 <div id="monster-list" class="monster-list"></div>
                 <h3>Combat log</h3>
                 <div id="combat-log" class="combat-log"><p class="muted">No fights yet.</p></div>

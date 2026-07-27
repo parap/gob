@@ -81,6 +81,15 @@ CREATE TABLE IF NOT EXISTS characters (
     last_regen_at   DATETIME NULL,       -- marker for passive HP regeneration
     last_explore_at DATETIME NULL,       -- cooldown marker for exploration
     current_province_id INT UNSIGNED NULL, -- province the hero is currently in
+
+    -- Mercy stance (spare beaten enemies instead of looting them) and the one
+    -- open mercy window: an enemy beaten but not yet finished off. The window
+    -- settles lazily on the next request that touches it.
+    mercy              TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    spared_monster_id  INT UNSIGNED NULL,
+    spared_site_id     INT UNSIGNED NULL,
+    spared_province_id INT UNSIGNED NULL,
+    spared_at          DATETIME NULL,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -423,4 +432,48 @@ CREATE TABLE IF NOT EXISTS player_quests (
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_quest_player (player_id, state),
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================================================
+-- Relationships: how each race feels about the player, on two axes
+-- (hostility = attacks on sight, trust = opens up), tracked at nested scopes.
+-- ============================================================================
+-- A scope only gets a row once the player does something at that scope; until
+-- then it inherits the broader one, and the encounter value is the weighted
+-- blend (site x4, province x2, generic x1 — see Gob\Domain\Relationship).
+-- The person scope (rel_npc, x8) comes with the NPC-promotion slice.
+
+-- Race-wide reputation: what goblins everywhere have heard about you.
+CREATE TABLE IF NOT EXISTS rel_generic (
+    player_id INT UNSIGNED NOT NULL,
+    race      VARCHAR(24)  NOT NULL,
+    hostility SMALLINT UNSIGNED NOT NULL,
+    trust     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (player_id, race),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- The tribe across one province.
+CREATE TABLE IF NOT EXISTS rel_province (
+    player_id   INT UNSIGNED NOT NULL,
+    province_id INT UNSIGNED NOT NULL,
+    race        VARCHAR(24)  NOT NULL,
+    hostility   SMALLINT UNSIGNED NOT NULL,
+    trust       SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (player_id, province_id, race),
+    FOREIGN KEY (player_id)   REFERENCES players(id)   ON DELETE CASCADE,
+    FOREIGN KEY (province_id) REFERENCES provinces(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- The community of a single site. Race is stored rather than implied, so a
+-- site holding more than one race keeps their opinions apart.
+CREATE TABLE IF NOT EXISTS rel_site (
+    player_id INT UNSIGNED NOT NULL,
+    site_id   INT UNSIGNED NOT NULL,
+    race      VARCHAR(24)  NOT NULL,
+    hostility SMALLINT UNSIGNED NOT NULL,
+    trust     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (player_id, site_id, race),
+    FOREIGN KEY (player_id) REFERENCES players(id)        ON DELETE CASCADE,
+    FOREIGN KEY (site_id)   REFERENCES province_sites(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

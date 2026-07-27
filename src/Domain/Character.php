@@ -22,6 +22,11 @@ final class Character
     // Item ids a new character starts with (Rusty Sword, Leather Cap).
     public const STARTER_ITEMS = [1, 3];
 
+    // How long a spared enemy lies at the player's mercy before it crawls off:
+    // long enough to decide, short enough to stay a decision (§3). combat.php
+    // owns what the window's Finish / expiry actually do.
+    public const MERCY_WINDOW_SECONDS = 30;
+
     // The paperdoll slots. Two rings and two bracelets get numbered slots.
     public const EQUIPMENT_SLOTS = [
         'ring_1', 'ring_2',
@@ -55,6 +60,21 @@ final class Character
 
     public function id(): int { return (int)$this->row['id']; }
     public function name(): string { return (string)$this->row['name']; }
+
+    // The open mercy window, or null if there is none / it has run out. Only
+    // reports it — settling an expired window is combat.php's job.
+    public function mercyWindow(): ?array
+    {
+        $c = $this->row;
+        if (empty($c['spared_monster_id']) || empty($c['spared_at'])) {
+            return null;
+        }
+        $left = self::MERCY_WINDOW_SECONDS - (time() - strtotime($c['spared_at']));
+        if ($left <= 0) {
+            return null;
+        }
+        return ['monster_id' => (int)$c['spared_monster_id'], 'seconds_left' => $left];
+    }
 
     // The full API view — identical shape to the old loadCharacter() array:
     // vitals, base + effective stats/sub-stats, skills, equipment, backpack.
@@ -121,6 +141,8 @@ final class Character
         return [
             'id'                 => (int)$c['id'],
             'name'               => $c['name'],
+            'mercy'              => (bool)$c['mercy'],
+            'mercy_window'       => $this->mercyWindow(),
             'vitals'             => $vitals,
             'stats'              => $base,
             'stats_effective'    => $effective,

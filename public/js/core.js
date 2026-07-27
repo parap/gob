@@ -11,6 +11,8 @@ const state = {
     world: null,
     village: null,   // { npcs, reputation }
     quests: [],
+    relations: [],   // generic-scope standing per race
+    mercyTimer: null,// countdown handle for an open mercy window
     ticker: null,    // setInterval handle for the resource counter
 };
 

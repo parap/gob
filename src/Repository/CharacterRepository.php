@@ -113,6 +113,63 @@ final class CharacterRepository
         $this->db->prepare('UPDATE characters SET last_explore_at = NOW() WHERE id = ?')->execute([$charId]);
     }
 
+    // --- Mercy stance & window -------------------------------------------
+
+    public function setMercy(int $charId, bool $on): void
+    {
+        $this->db->prepare('UPDATE characters SET mercy = ? WHERE id = ?')->execute([$on ? 1 : 0, $charId]);
+    }
+
+    public function mercyStance(int $charId): bool
+    {
+        $stmt = $this->db->prepare('SELECT mercy FROM characters WHERE id = ?');
+        $stmt->execute([$charId]);
+        return (bool)$stmt->fetchColumn();
+    }
+
+    // Remember the enemy left alive, where it happened, and when — the deed
+    // itself isn't recorded until the window resolves.
+    public function openMercyWindow(int $charId, int $monsterId, ?int $siteId, ?int $provinceId): void
+    {
+        $this->db->prepare(
+            'UPDATE characters
+             SET spared_monster_id = ?, spared_site_id = ?, spared_province_id = ?, spared_at = NOW()
+             WHERE id = ?'
+        )->execute([$monsterId, $siteId, $provinceId, $charId]);
+    }
+
+    // The open window with its remaining seconds, or null. `expired` marks a
+    // window whose time ran out but which hasn't been settled yet.
+    public function mercyWindow(int $charId): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT spared_monster_id, spared_site_id, spared_province_id, spared_at
+             FROM characters WHERE id = ?'
+        );
+        $stmt->execute([$charId]);
+        $row = $stmt->fetch();
+        if (!$row || $row['spared_monster_id'] === null || $row['spared_at'] === null) {
+            return null;
+        }
+        $left = Character::MERCY_WINDOW_SECONDS - (time() - strtotime($row['spared_at']));
+        return [
+            'monster_id'   => (int)$row['spared_monster_id'],
+            'site_id'      => $row['spared_site_id'] !== null ? (int)$row['spared_site_id'] : null,
+            'province_id'  => $row['spared_province_id'] !== null ? (int)$row['spared_province_id'] : null,
+            'seconds_left' => max(0, $left),
+            'expired'      => $left <= 0,
+        ];
+    }
+
+    public function clearMercyWindow(int $charId): void
+    {
+        $this->db->prepare(
+            'UPDATE characters
+             SET spared_monster_id = NULL, spared_site_id = NULL, spared_province_id = NULL, spared_at = NULL
+             WHERE id = ?'
+        )->execute([$charId]);
+    }
+
     // Load the full character (regen applied first) as a domain object.
     public function load(int $charId): Character
     {

@@ -640,9 +640,13 @@ Handlers (sketch):
   (tell an NPC a fact), `GET /api/quests`, `POST /api/quests/complete` (names TBD).
 
 Suggested build order (thin vertical slice, goblins only, to prove the loop):
-1. `mercy` stance + two-axis `race_relations` + spare-lowers-Hostility (caps Neutral).
-2. Mercy window with Finish (normal kill) + random fanatics.
-3. Language skill + Interrogate (generic intel first).
+1. ~~`mercy` stance + two-axis `race_relations` + spare-lowers-Hostility (caps Neutral).~~
+   **BUILT** — `Gob\Domain\Relationship` + `RelationshipRepository`, scopes
+   generic/province/site (person deferred, its ×8 weight reserved).
+2. ~~Mercy window with Finish (normal kill) + random fanatics.~~ **BUILT** —
+   `characters.spared_*` + `POST /api/combat/finish`; the window settles lazily,
+   and walking off to another fight counts as sparing.
+3. Language skill + Interrogate (generic intel first).  ← next
 4. Info model core (§7): `info_facts` + `player_knowledge`, `perceive()`, a handful
    of type-level goblin facts, encounter view layered by skills; Share action.
 5. Unified `npcs` + home village residents (human quest-givers); `player_quests` with

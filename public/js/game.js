@@ -19,7 +19,7 @@ async function enterGame() {
     $('topbar-username').textContent = state.username;
     showScreen('game');
     switchGamePanel(location.hash.slice(1) || 'settlement');
-    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadWorld(), loadVillage()]);
+    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadWorld(), loadVillage(), loadRelations()]);
     startTicker();
 }
 
@@ -50,13 +50,114 @@ async function loadMonsters() {
 }
 
 async function fight(monsterId) {
+    clearMercyBox();
     const { status, body } = await req('POST', '/combat/attack', { monster_id: monsterId });
     if (status !== 200) return;
     setCharacter(body.character);   // hp/skills/loot already updated server-side
     renderCharacter();
     await loadSettlements();            // gold reward may have landed
     loadVillage();                      // a kill may have advanced a quest
+    loadRelations();                    // the deed moved how the race sees you
     renderCombat(body);
+}
+
+// ── Mercy ────────────────────────────────────────────────────────────────────
+// The stance is a plain toggle with no explanation attached: what sparing costs
+// and what it buys is for the player to find out.
+
+async function toggleMercy() {
+    const { status, body } = await req('POST', '/character/mercy', { on: !state.character?.mercy });
+    if (status !== 200) return;
+    setCharacter(body.character);
+    renderCharacter();
+}
+
+function renderMercyBar() {
+    const on = !!state.character?.mercy;
+    const btn = $('btn-mercy');
+    if (!btn) return;
+    btn.textContent = `Mercy: ${on ? 'on' : 'off'}`;
+    btn.classList.toggle('active', on);
+}
+
+// The 30s window after a spare: kill it after all, or let it crawl away. Runs
+// off a deadline rather than a counter, so re-rendering never rewinds it.
+function renderMercyWindow(monsterName) {
+    const box = $('mercy-window');
+    if (!box) return;
+    if (state.mercyTimer) { clearInterval(state.mercyTimer); state.mercyTimer = null; }
+
+    const w = state.character?.mercy_window;
+    if (!w || !state.mercyDeadline) {
+        // A window that just closed leaves its outcome on screen until the next
+        // fight clears it; only wipe the box when there's nothing to say.
+        if (!box.querySelector('.mercy-closed')) box.innerHTML = '';
+        return;
+    }
+
+    const name = monsterName
+        || state.monsters.find(m => m.id === w.monster_id)?.name
+        || 'It';
+
+    const paint = () => {
+        const left = Math.ceil((state.mercyDeadline - Date.now()) / 1000);
+        if (left <= 0) {
+            clearInterval(state.mercyTimer);
+            state.mercyTimer = null;
+            state.mercyDeadline = null;
+            box.innerHTML = `<span class="mercy-closed muted">${esc(name)} crawls away into the dark.</span>`;
+            loadCharacter();     // settles the spare server-side
+            loadRelations();
+            return;
+        }
+        box.innerHTML = `<span class="mercy-open">${esc(name)} lies at your mercy — ${left}s</span>
+            <button class="btn-mini" id="btn-finish">Finish it</button>`;
+    };
+    paint();
+    state.mercyTimer = setInterval(paint, 1000);
+}
+
+async function finishSpared() {
+    const { status, body } = await req('POST', '/combat/finish');
+    if (status !== 200) { loadCharacter(); return; }
+    setCharacter(body.character);
+    renderCharacter();
+    await loadSettlements();
+    loadVillage();
+    loadRelations();
+
+    const bits = [];
+    if (body.rewards.gold) bits.push(`+${body.rewards.gold} gold`);
+    if (body.rewards.items.length) bits.push(`took ${body.rewards.items.join(', ')}`);
+    if (state.mercyTimer) { clearInterval(state.mercyTimer); state.mercyTimer = null; }
+    $('mercy-window').innerHTML =
+        `<span class="mercy-closed">You finish ${esc(body.finished)}.${bits.length ? ' ' + esc(bits.join(', ')) : ''}</span>`;
+}
+
+// Wipe the mercy bar (and any countdown) — a new fight supersedes whatever the
+// last one left there.
+function clearMercyBox() {
+    if (state.mercyTimer) { clearInterval(state.mercyTimer); state.mercyTimer = null; }
+    state.mercyDeadline = null;
+    const box = $('mercy-window');
+    if (box) box.innerHTML = '';
+}
+
+// One line describing what the stance did to the loser, or '' when it did
+// nothing (stance off, or the fight was lost).
+function mercyLine(r) {
+    const m = r.mercy;
+    if (!m || r.outcome !== 'win') return '';
+    if (m.outcome === 'spared') {
+        return `<div class="combat-mercy">You let ${esc(r.monster.name)} live — no gold, no loot.</div>`;
+    }
+    if (m.outcome === 'fanatic') {
+        return `<div class="combat-mercy">${esc(r.monster.name)} fights to the last and dies.</div>`;
+    }
+    if (m.outcome === 'unsparable') {
+        return `<div class="combat-mercy">There was never anyone there to spare.</div>`;
+    }
+    return '';
 }
 
 function renderCombat(r, targetId = 'combat-log') {
@@ -77,7 +178,27 @@ function renderCombat(r, targetId = 'combat-log') {
         return `<div class="combat-line ${e.actor}">R${e.round}: ${who} hit ${tgt} for ${e.damage} (${tgt} ${e.target_hp} hp)</div>`;
     }).join('');
 
-    $(targetId).innerHTML = head + lines;
+    $(targetId).innerHTML = head + mercyLine(r) + lines;
+    renderMercyWindow(r.monster.name);
+}
+
+// ── Standing: how each race currently sees you ───────────────────────────────
+
+async function loadRelations() {
+    const { status, body } = await req('GET', '/relations');
+    if (status !== 200 || !Array.isArray(body)) return;
+    state.relations = body;
+    renderRelations();
+}
+
+function renderRelations() {
+    const el = $('char-standing');
+    if (!el) return;
+    el.innerHTML = state.relations.length
+        ? state.relations.map(r => `<div class="skill" title="hostility ${r.hostility} · trust ${r.trust}">
+               <span>${esc(r.race)}</span><b>${esc(r.stage_label)}</b>
+           </div>`).join('')
+        : '<p class="muted">Nobody has an opinion of you yet.</p>';
 }
 
 async function loadCharacter() {
@@ -107,6 +228,9 @@ function vitalBar(label, value, max) {
 function setCharacter(c) {
     c.vitalsFetchedAt = Date.now();
     state.character = c;
+    // Turn the server's remaining seconds into a local deadline once, so the
+    // countdown survives unrelated re-renders.
+    state.mercyDeadline = c.mercy_window ? Date.now() + c.mercy_window.seconds_left * 1000 : null;
 }
 
 // Project current HP forward from the regen rate since the last fetch.
@@ -148,6 +272,8 @@ function renderCharacter() {
     $('char-name').textContent = c.name;
 
     renderVitals();
+    renderMercyBar();
+    renderMercyWindow();
 
     // Show effective value, with the base in parentheses when gear changed it.
     const statRow = (label, base, eff) => {
@@ -416,11 +542,12 @@ async function travelTo(provinceId) {
 }
 
 async function delveSite(siteId) {
+    clearMercyBox();
     const { status, body } = await req('POST', '/world/sites/advance', { site_id: siteId });
     if (status !== 200) return;
     setCharacter(body.character);
     renderCharacter();
-    await Promise.all([loadWorld(), loadSettlements(), loadVillage()]);
+    await Promise.all([loadWorld(), loadSettlements(), loadVillage(), loadRelations()]);
 
     // Full battle log + loot, right here on the Exploration tab.
     renderCombat(body.combat, 'explore-log');

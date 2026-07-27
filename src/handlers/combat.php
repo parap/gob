@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+use Gob\Domain\Character;
+use Gob\Domain\Relationship;
+
 // Safety cap so a fight can never loop forever.
 const MAX_COMBAT_ROUNDS = 60;
 
@@ -10,6 +13,11 @@ const GOBLIN_EAR_ITEM_ID = 19;
 function monsterRepo(): \Gob\Repository\MonsterRepository
 {
     return \Gob\Repositories::get(\Gob\Repository\MonsterRepository::class);
+}
+
+function relationRepo(): \Gob\Repository\RelationshipRepository
+{
+    return \Gob\Repositories::get(\Gob\Repository\RelationshipRepository::class);
 }
 
 function handleMonsters(): void
@@ -44,16 +52,158 @@ function handleAttack(): void
     json(200, $res);
 }
 
+// POST /api/character/mercy — flip the stance. Nothing announces what it costs
+// or buys; the player finds that out by using it (§1: no directions).
+function handleMercyStance(): void
+{
+    $player = requirePlayer();
+    $charId = ensureCharacter((int)$player['id'], $player['username']);
+
+    characterRepo()->setMercy($charId, (bool)(body()['on'] ?? false));
+    json(200, ['character' => loadCharacter($charId)]);
+}
+
+// POST /api/combat/finish — kill the enemy still lying at your mercy and take
+// the loot sparing forwent. Counts as an ordinary kill, no betrayal penalty (§3).
+function handleFinish(): void
+{
+    $player = requirePlayer();
+    $charId = ensureCharacter((int)$player['id'], $player['username']);
+
+    $window = characterRepo()->mercyWindow($charId);
+    if (!$window || $window['expired']) {
+        settleMercyWindow((int)$player['id'], $charId);
+        json(400, ['error' => 'Nothing is at your mercy.']);
+    }
+
+    $m = monsterRepo()->find($window['monster_id']);
+    characterRepo()->clearMercyWindow($charId);
+    if (!$m) {
+        json(404, ['error' => 'Monster not found.']);
+    }
+
+    $rewards = grantKillRewards($player, $charId, $m);
+    applyKillDeed((int)$player['id'], $m, $window['province_id'], $window['site_id']);
+
+    json(200, [
+        'finished'  => $m['name'],
+        'rewards'   => $rewards,
+        'relation'  => relationRepo()
+            ->effective((int)$player['id'], (string)($m['race'] ?? 'unknown'), $window['province_id'], $window['site_id'])
+            ->toArray(),
+        'character' => loadCharacter($charId),
+    ]);
+}
+
+// Close out a mercy window as a spare: the enemy was left alive, so the deed
+// finally counts. That happens when the window runs out (it crawls off) and
+// equally when the player walks away to another fight — $abandoned. Cheap
+// no-op when there's nothing pending.
+function settleMercyWindow(int $playerId, int $charId, bool $abandoned = false): void
+{
+    $window = characterRepo()->mercyWindow($charId);
+    if (!$window || (!$window['expired'] && !$abandoned)) {
+        return;
+    }
+    characterRepo()->clearMercyWindow($charId);
+
+    $m = monsterRepo()->find($window['monster_id']);
+    if (!$m) {
+        return;
+    }
+    // Sparing lowers Hostility only, and only as far as wary coexistence —
+    // liking has to be earned by helping, which no verb does yet (§2).
+    relationRepo()->applyDeed(
+        $playerId,
+        (string)($m['race'] ?? 'unknown'),
+        $window['province_id'],
+        $window['site_id'],
+        -Relationship::SPARE_HOSTILITY_DROP,
+        0,
+        Relationship::SPARE_HOSTILITY_FLOOR,
+    );
+}
+
+// A body looted: gold into the settlement, the loot roll, and the goblin ear.
+// Shared by an ordinary kill and by finishing a spared enemy.
+function grantKillRewards(array $player, int $charId, array $m): array
+{
+    $db      = db();
+    $rewards = ['gold' => 0, 'items' => []];
+
+    $sid = $db->prepare('SELECT id FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
+    $sid->execute([$player['id']]);
+    if ($settlementId = $sid->fetchColumn()) {
+        $gold = (int)$m['reward_gold'];
+        $db->prepare('UPDATE settlements SET gold = LEAST(capacity_gold, gold + ?) WHERE id = ?')
+           ->execute([$gold, $settlementId]);
+        $rewards['gold'] = $gold;
+    }
+
+    if ($m['loot_item_id'] !== null && (int)$m['loot_chance'] > 0
+        && random_int(1, 100) <= (int)$m['loot_chance']) {
+        grantItem($charId, (int)$m['loot_item_id']);
+        $rewards['items'][] = itemRepo()->name((int)$m['loot_item_id']);
+    }
+
+    // Goblins yield an ear (proof). Guaranteed, on top of the normal loot roll.
+    if (($m['race'] ?? '') === 'goblin') {
+        grantItem($charId, GOBLIN_EAR_ITEM_ID);
+        $rewards['items'][] = 'Goblin Ear';
+    }
+
+    advanceKillQuests((int)$player['id'], (string)($m['race'] ?? ''));
+    return $rewards;
+}
+
+function applyKillDeed(int $playerId, array $m, ?int $provinceId, ?int $siteId): void
+{
+    relationRepo()->applyDeed(
+        $playerId,
+        (string)($m['race'] ?? 'unknown'),
+        $provinceId,
+        $siteId,
+        Relationship::KILL_HOSTILITY_RISE,
+    );
+}
+
+// Decide what the mercy stance does to a beaten enemy. Returns the outcome
+// tag; 'spared' is the only one that withholds loot.
+function mercyOutcome(bool $stance, array $m): string
+{
+    if (!$stance) {
+        return 'off';
+    }
+    if (!Relationship::isSparable((string)($m['race'] ?? 'unknown'))) {
+        return 'unsparable';   // no one home to spare — bone and iron
+    }
+    if (Relationship::rollFanatic()) {
+        return 'fanatic';      // this one would rather die
+    }
+    return 'spared';
+}
+
 // Simulate a fight between the hero and a monster row, persist the hero's HP,
-// grant win rewards (gold + skill training + monster loot), and return the
-// result (outcome, rounds, log, hero_hp_after, rewards, monster). Reused by
-// both the arena (handleAttack) and exploration (handleSiteAdvance).
-function resolveFight(array $player, int $charId, array $m): array
+// grant win rewards (gold + skill training + monster loot), apply the mercy
+// stance to the beaten enemy, and return the result (outcome, rounds, log,
+// hero_hp_after, rewards, mercy, relation, monster). Reused by both the arena
+// (handleAttack) and exploration (handleSiteAdvance).
+//
+// $siteId is the site the fight happened at, if any: it decides how narrowly
+// the deed is remembered (§2 — a cave's own community vs. the whole race).
+function resolveFight(array $player, int $charId, array $m, ?int $siteId = null): array
 {
     $db = db();
 
+    // Starting another fight abandons anyone still lying at the player's
+    // mercy — they were left alive, so bank that before the window is reused.
+    settleMercyWindow((int)$player['id'], $charId, true);
+
     // Fresh hero numbers (regen already applied inside loadCharacter).
     $c = loadCharacter($charId);
+
+    $stance     = characterRepo()->mercyStance($charId);
+    $provinceId = worldRepo()->currentProvinceId($charId);
 
     // Which skill the equipped weapon trains (unarmed if bare-handed).
     $weapon          = $c['equipment']['weapon'] ?? null;
@@ -95,42 +245,30 @@ function resolveFight(array $player, int $charId, array $m): array
     $db->prepare('UPDATE characters SET hp = ? WHERE id = ?')->execute([$finalHp, $charId]);
 
     $rewards = ['gold' => 0, 'skills' => [], 'items' => []];
-    if ($win) {
-        // Gold into the first settlement (clamped to its capacity).
-        $sid = $db->prepare('SELECT id FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
-        $sid->execute([$player['id']]);
-        $settlementId = $sid->fetchColumn();
-        if ($settlementId) {
-            $gold = (int)$m['reward_gold'];
-            $db->prepare('UPDATE settlements SET gold = LEAST(capacity_gold, gold + ?) WHERE id = ?')
-               ->execute([$gold, $settlementId]);
-            $rewards['gold'] = $gold;
-        }
+    $mercy   = ['stance' => $stance, 'outcome' => 'off', 'window' => null, 'forgone_gold' => 0];
 
-        // Train the skills that did the work (capped at 100).
+    if ($win) {
+        // Fighting trains the skills that did the work whatever happens to the
+        // loser afterwards (capped at 100) — mercy costs loot, not practice.
         foreach (array_unique(['attack', $weaponSkillName]) as $sk) {
             $db->prepare('UPDATE character_skills SET value = LEAST(100, value + 1) WHERE character_id = ? AND skill = ?')
                ->execute([$charId, $sk]);
             $rewards['skills'][] = $sk;
         }
 
-        // Roll for a loot drop.
-        if ($m['loot_item_id'] !== null && (int)$m['loot_chance'] > 0
-            && random_int(1, 100) <= (int)$m['loot_chance']) {
-            grantItem($charId, (int)$m['loot_item_id']);
-            $nm = $db->prepare('SELECT name FROM items WHERE id = ?');
-            $nm->execute([(int)$m['loot_item_id']]);
-            $rewards['items'][] = $nm->fetchColumn();
+        $mercy['outcome'] = mercyOutcome($stance, $m);
+        if ($mercy['outcome'] === 'spared') {
+            // No looting a body that's still breathing. The deed itself waits
+            // on the window: right now this one is only beaten, not spared.
+            characterRepo()->openMercyWindow($charId, (int)$m['id'], $siteId, $provinceId);
+            $mercy['window']       = ['seconds' => Character::MERCY_WINDOW_SECONDS];
+            $mercy['forgone_gold'] = (int)$m['reward_gold'];
+        } else {
+            $loot             = grantKillRewards($player, $charId, $m);
+            $rewards['gold']  = $loot['gold'];
+            $rewards['items'] = $loot['items'];
+            applyKillDeed((int)$player['id'], $m, $provinceId, $siteId);
         }
-
-        // Goblins yield an ear (proof). Guaranteed, on top of the normal loot roll.
-        if (($m['race'] ?? '') === 'goblin') {
-            grantItem($charId, GOBLIN_EAR_ITEM_ID);
-            $rewards['items'][] = 'Goblin Ear';
-        }
-
-        // Advance any active kill-quests targeting this monster's race.
-        advanceKillQuests((int)$player['id'], (string)($m['race'] ?? ''));
     }
 
     return [
@@ -140,5 +278,9 @@ function resolveFight(array $player, int $charId, array $m): array
         'monster'       => ['id' => (int)$m['id'], 'name' => $m['name'], 'hp' => (int)$m['hp']],
         'hero_hp_after' => $finalHp,
         'rewards'       => $rewards,
+        'mercy'         => $mercy,
+        'relation'      => relationRepo()
+            ->effective((int)$player['id'], (string)($m['race'] ?? 'unknown'), $provinceId, $siteId)
+            ->toArray(),
     ];
 }

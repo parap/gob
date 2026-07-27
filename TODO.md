@@ -16,9 +16,26 @@ Running list of loose ends and next steps. See `ideas.md` (raw brainstorm) and
       now equips `STARTER_ITEMS` via `ItemRepository::equipIfFree()`, so a new hero
       spawns wearing the Rusty Sword + Leather Cap instead of losing the first
       goblin fight bare-handed.
-- [ ] **Next slice (per `future_implementation.md` build order):** mercy stance +
-      the two-axis relationship model + the Spare action. Now much easier on the
-      repository foundation.
+- [x] **Mercy slice, build-order steps 1–2** (`future_implementation.md` §2/§3):
+      mercy stance, two-axis relationships blended over generic/province/site,
+      spare-lowers-Hostility capped at Neutral, the 30s mercy window with
+      Finish, and the random fanatic roll.
+- [ ] **Step 3 — language skill + Interrogate.** The mercy window currently
+      offers only Finish or letting them crawl off; Interrogate is what makes
+      sparing pay a *different* currency instead of just costing loot. Needs a
+      `lang_goblin`-style skill first (§5), so it lands with tutors.
+- [ ] **Reciprocal mercy** (§3, designed but not built): on a *loss*, the race's
+      attitude should decide the outcome — hostile robs you, neutral spares you,
+      friendly patches you up. Currently every defeat is the old flat 1 HP.
+- [ ] **Person scope** `rel_npc` (×8): the blend already reserves its weight and
+      inherits from site when absent, so adding it is additive. Blocked on
+      promoting a spared individual to a persistent NPC (§10).
+
+## Tuning (numbers picked to ship, all open per `future_implementation.md` §11)
+- [ ] `Relationship::START_HOSTILITY` per race — the Dominions import brought in
+      races the table doesn't name (`humanoid`, `magical`), which fall back to 75.
+- [ ] Stage thresholds (70 / 40 hostility, 25 / 60 trust), the spare drop (−6)
+      vs. kill rise (+2), and the 25% fanatic rate. All are single constants.
 
 ## Housekeeping
 - [ ] **Refresh project memory** — it hasn't been updated since the RPG-layer slice

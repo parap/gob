@@ -41,5 +41,16 @@ function handleMyCharacter(): void
 {
     $player = requirePlayer();
     $charId = ensureCharacter((int)$player['id'], $player['username']);
+    // An enemy left at the player's mercy crawls off once its window runs out;
+    // settle it here so the spare is recorded even if the player never fights
+    // again (§3).
+    settleMercyWindow((int)$player['id'], $charId);
     json(200, loadCharacter($charId));
+}
+
+// GET /api/relations — generic-scope standing for every race with any history.
+function handleRelations(): void
+{
+    $player = requirePlayer();
+    json(200, relationRepo()->known((int)$player['id']));
 }
