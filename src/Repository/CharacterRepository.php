@@ -36,8 +36,12 @@ final class CharacterRepository
         foreach (Character::SKILLS as $s) {
             $skill->execute([$charId, $s]);
         }
+        // Starter gear goes straight onto the hero rather than into the
+        // backpack — otherwise a new player walks into the first goblin fight
+        // bare-handed with a sword they never noticed.
+        $items = $this->items();
         foreach (Character::STARTER_ITEMS as $itemId) {
-            $this->items()->grant($charId, $itemId);
+            $items->equipIfFree($charId, $items->grant($charId, $itemId));
         }
         return $charId;
     }

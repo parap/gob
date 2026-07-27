@@ -32,10 +32,12 @@ final class ItemRepository
     }
 
     // Give a character an item instance (to the backpack, unequipped).
-    public function grant(int $charId, int $itemId): void
+    // Returns the new character_items id.
+    public function grant(int $charId, int $itemId): int
     {
         $this->db->prepare('INSERT INTO character_items (character_id, item_id) VALUES (?, ?)')
                  ->execute([$charId, $itemId]);
+        return (int)$this->db->lastInsertId();
     }
 
     // All item definitions (for the loot table).
@@ -119,6 +121,21 @@ final class ItemRepository
         $this->db->prepare('UPDATE character_items SET equipped_slot = ? WHERE id = ?')
                  ->execute([$slot, $charItemId]);
         $this->db->commit();
+    }
+
+    // Equip an owned instance into the first free slot its type allows.
+    // No-op for consumables or when every allowed slot is already taken, so
+    // it never silently replaces gear the player chose.
+    public function equipIfFree(int $charId, int $charItemId): void
+    {
+        $row = $this->instance($charItemId, $charId);
+        if (!$row || $row['kind'] === 'consumable') {
+            return;
+        }
+        $slot = $this->firstFreeSlot($charId, Item::slotsForType($row['slot_type']));
+        if ($slot !== null) {
+            $this->equip($charId, $charItemId, $slot);
+        }
     }
 
     public function unequipSlot(int $charId, string $slot): void
