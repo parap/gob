@@ -658,9 +658,15 @@ Suggested build order (thin vertical slice, goblins only, to prove the loop):
    **3a BUILT** — `Gob\Domain\{Language,Tutor}`, `lang_<race>` skills, the
    village scholar as a paid tutor with a rolled ceiling and diminishing
    returns, one timed slot on `characters.training_*` settled lazily on read.
-   **3b next** — Interrogate in the mercy window, gated on knowing the tongue.
-4. Info model core (§7): `info_facts` + `player_knowledge`, `perceive()`, a handful
-   of type-level goblin facts, encounter view layered by skills; Share action.
+   **3b BUILT** — `Gob\Domain\Interrogation` + `POST /api/combat/interrogate`:
+   gated on knowing the tongue, renders speech degraded by language level (the
+   `GRAAAH → words` reveal, as text), reveals a hidden site their kin hold, and
+   sometimes a stash. Consumes the window and counts as a spare.
+4. Info model core (§7) ← **next**: `info_facts` + `player_knowledge`,
+   `perceive()`, a handful of type-level goblin facts, encounter view layered by
+   skills; Share action. What a prisoner says today is flavour that vanishes
+   when read — facts-as-data is what makes it stick, and what lets quests
+   consume interrogation clues instead of merely flagging them.
 5. Unified `npcs` + home village residents (human quest-givers); `player_quests` with
    T1 **kill/fetch/deliver** templates + Knowledge/Trust rewards, tier-gated by stage.
 6. Info-objective & social/deduction quests (learn a tagged fact / Share a conclusion);

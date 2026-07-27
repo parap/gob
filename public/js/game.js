@@ -163,8 +163,14 @@ function renderMercyWindow(monsterName) {
             loadRelations();
             return;
         }
+        // Interrogate only appears once you have some of their tongue. Without
+        // it there is no button and no explanation — nothing announces that
+        // the option exists, or what would unlock it.
+        const race  = state.monsters.find(m => m.id === w.monster_id)?.race;
+        const known = race && (state.character?.skills || {})[`lang_${race}`] > 0;
         box.innerHTML = `<span class="mercy-open">${esc(name)} lies at your mercy — ${left}s</span>
             <button class="btn-mini" id="btn-finish">Finish it</button>
+            ${known ? '<button class="btn-mini" id="btn-interrogate">Interrogate</button>' : ''}
             <button class="btn-mini" id="btn-leave">Leave</button>`;
     };
     paint();
@@ -201,6 +207,32 @@ async function leaveSpared() {
     if (state.mercyTimer) { clearInterval(state.mercyTimer); state.mercyTimer = null; }
     $('mercy-window').innerHTML =
         `<span class="mercy-closed">You leave ${esc(body.left)} where it lies.</span>`;
+}
+
+// Question the prisoner. What they say is rendered exactly as the player hears
+// it, so the same line resolves further as their language improves.
+async function interrogateSpared() {
+    const { status, body } = await req('POST', '/combat/interrogate');
+    if (state.mercyTimer) { clearInterval(state.mercyTimer); state.mercyTimer = null; }
+    if (status !== 200) {
+        $('mercy-window').innerHTML = `<span class="mercy-closed">${esc(body.error || 'Nothing to ask.')}</span>`;
+        loadCharacter();
+        return;
+    }
+    setCharacter(body.character);
+    renderCharacter();
+    await Promise.all([loadSettlements(), loadWorld(), loadRelations()]);
+
+    const bits = [];
+    if (body.intel) {
+        bits.push(`They give up <b>${esc(body.intel.site)}</b>${body.intel.quest_relevant ? ' — and it bears on what you were sent to do' : ''}.`);
+    }
+    if (body.gold) bits.push(`You dig up a stash of ${body.gold} gold.`);
+    if (!bits.length) bits.push('They tell you nothing you can use.');
+
+    $('mercy-window').innerHTML = `<span class="mercy-closed">
+        <b>${esc(body.monster)}:</b> <i class="said">“${esc(body.said)}”</i> ${bits.join(' ')}
+    </span>`;
 }
 
 // Wipe the mercy bar (and any countdown) — a new fight supersedes whatever the

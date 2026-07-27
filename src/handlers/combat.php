@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 use Gob\Domain\Character;
+use Gob\Domain\Interrogation;
+use Gob\Domain\Language;
 use Gob\Domain\Relationship;
 
 // Safety cap so a fight can never loop forever.
@@ -125,6 +127,80 @@ function relationView(int $playerId, array $m, ?int $provinceId, ?int $siteId): 
         return null;
     }
     return relationRepo()->effective($playerId, $race, $provinceId, $siteId)->toArray();
+}
+
+// POST /api/combat/interrogate — question the enemy lying at your mercy.
+// Needs some of their tongue (§4): this is the first thing a language buys and
+// the first time sparing pays anything back. Costs the window either way — you
+// squeeze them, then they crawl off, which still counts as sparing them.
+function handleInterrogate(): void
+{
+    $player = requirePlayer();
+    $pid    = (int)$player['id'];
+    $charId = ensureCharacter($pid, (string)$player['username']);
+
+    $window = characterRepo()->mercyWindow($charId);
+    if (!$window || $window['expired']) {
+        settleMercyWindow($pid, $charId);
+        json(400, ['error' => 'Nothing is at your mercy.']);
+    }
+
+    $m = monsterRepo()->find($window['monster_id']);
+    if (!$m) {
+        characterRepo()->clearMercyWindow($charId);
+        json(404, ['error' => 'Monster not found.']);
+    }
+
+    $race  = (string)($m['race'] ?? 'unknown');
+    $skill = Language::skill($race);
+    $level = (int)(loadCharacter($charId)['skills'][$skill] ?? 0);
+    if ($level < Language::FRAGMENTS) {
+        // Deliberately not an explanation: you hear noise and learn nothing,
+        // rather than being told a skill exists that would fix it (§1).
+        json(400, ['error' => 'They snarl something at you. It means nothing.']);
+    }
+
+    // Questioning ends the window: they talk, then they go.
+    settleMercyWindow($pid, $charId, true);
+
+    $said = Interrogation::heard(Interrogation::line($race), $level);
+
+    // Intel: where their kin are. Revealing the site stamps found_at, so it
+    // surfaces at the top of the discovered list like any fresh find.
+    $intel = null;
+    if (random_int(1, 100) <= Interrogation::intelChance($level)) {
+        $site = worldRepo()->randomHiddenSite($pid, $window['province_id'], $race);
+        if ($site) {
+            worldRepo()->setSiteState((int)$site['id'], 'found');
+            $intel = [
+                'site' => $site['name'],
+                'type' => $site['type'],
+                // Flagged when it bears on something the player is already
+                // chasing — the headline value interrogation is meant to have.
+                'quest_relevant' => questRepo()->hasActiveKillQuest($pid, $race),
+            ];
+        }
+    }
+
+    $gold = 0;
+    if (random_int(1, 100) <= Interrogation::stashChance($level)) {
+        $gold = Interrogation::stashGold();
+        addGold($player, $gold);
+    }
+
+    json(200, [
+        'monster'  => $m['name'],
+        'said'     => $said,
+        'language' => [
+            'skill'   => $skill,
+            'value'   => $level,
+            'fluency' => Language::fluency($level),
+        ],
+        'intel'     => $intel,
+        'gold'      => $gold,
+        'relation'  => relationView($pid, $m, $window['province_id'], $window['site_id']),
+        'character' => loadCharacter($charId),
+    ]);
 }
 
 // Close out a mercy window as a spare: the enemy was left alive, so the deed

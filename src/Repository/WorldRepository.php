@@ -145,6 +145,38 @@ final class WorldRepository
         return $stmt->fetch() ?: null;
     }
 
+    // A still-hidden site a prisoner could give up, preferring one their own
+    // kin hold — a goblin knows where goblins are, not where the ogres sleep.
+    // Falls back to any hidden site in the province so an interrogation in a
+    // thoroughly-searched corner still has something to offer.
+    public function randomHiddenSite(int $playerId, ?int $provinceId, string $race): ?array
+    {
+        $scope = $provinceId !== null ? 'AND ps.province_id = ?' : '';
+        $args  = $provinceId !== null ? [$playerId, $provinceId] : [$playerId];
+
+        $stmt = $this->db->prepare(
+            "SELECT ps.* FROM province_sites ps
+             WHERE ps.player_id = ? AND ps.state = 'hidden' AND ps.type <> 'road' $scope
+               AND EXISTS (
+                   SELECT 1 FROM monsters m
+                   WHERE m.race = ? AND JSON_CONTAINS(ps.stages_json, CAST(m.id AS JSON))
+               )
+             ORDER BY RAND() LIMIT 1"
+        );
+        $stmt->execute([...$args, $race]);
+        if ($row = $stmt->fetch()) {
+            return $row;
+        }
+
+        $stmt = $this->db->prepare(
+            "SELECT ps.* FROM province_sites ps
+             WHERE ps.player_id = ? AND ps.state = 'hidden' AND ps.type <> 'road' $scope
+             ORDER BY RAND() LIMIT 1"
+        );
+        $stmt->execute($args);
+        return $stmt->fetch() ?: null;
+    }
+
     // A random cleared boon that still grants a bonus (a raid can retake it), or null.
     public function randomClearedBoon(int $playerId): ?array
     {

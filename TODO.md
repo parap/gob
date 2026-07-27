@@ -26,10 +26,20 @@ Running list of loose ends and next steps. See `ideas.md` (raw brainstorm) and
       session closing 35% of the gap to it, so he tops out around "broken" and
       real fluency will need goblin tutors. Nothing advertises it — his row just
       says "Ask", like everyone else's.
-- [ ] **Step 3b — Interrogate.** A third button in the mercy window, gated on
-      `lang_goblin >= Language::FRAGMENTS`. This is the payoff that makes mercy
-      worth its cost: the corpse that used to pay gold pays intel instead.
-      Yields lore/intel now; quest-relevant clues once the info model lands.
+- [x] **Step 3b — Interrogate.** Third button in the mercy window, shown only
+      if you know the tongue. Yields a degraded rendering of what they say
+      (resolving further as the language grows), a ~38%-at-broken chance of
+      giving up a hidden site their own kin hold, and sometimes a buried stash.
+      Questioning consumes the window and still counts as sparing them.
+- [ ] **Interrogation lore is flavour, not knowledge.** What a prisoner says is
+      a line from `Interrogation::LINES` and vanishes once read — there is no
+      journal to keep it in, and `quest_relevant` only *flags* that revealed
+      intel bears on an active hunt rather than advancing anything. Both want
+      the info model (step 4): facts as data, tagged to quests, Remembered.
+- [ ] **Only goblins have lines.** `Interrogation::LINES` covers one race; every
+      other falls back to a single "nothing worth keeping" string. Unreachable
+      today (the scholar teaches only Goblin), but it gates adding any second
+      language.
 - [ ] **Tutors of other races.** `Tutor::CEILING_NATIVE` (65-95) is written and
       unused: a goblin tutor is the only way past "broken", and reaching one
       means getting goblin Hostility down first — which closes the loop the

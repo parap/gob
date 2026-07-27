@@ -27,6 +27,18 @@ final class QuestRepository
         return $stmt->fetchAll();
     }
 
+    // Is the player currently hunting this race? Used to flag interrogation
+    // intel that bears on something they already care about (§4).
+    public function hasActiveKillQuest(int $playerId, string $race): bool
+    {
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM player_quests
+             WHERE player_id = ? AND state = 'active' AND objective = 'kill' AND target_race = ?"
+        );
+        $stmt->execute([$playerId, $race]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
     public function find(int $id, int $playerId): ?array
     {
         $stmt = $this->db->prepare('SELECT * FROM player_quests WHERE id = ? AND player_id = ?');

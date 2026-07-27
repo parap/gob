@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.id === 'btn-mercy') { toggleMercy(); return; }
         if (e.target.id === 'btn-finish') { finishSpared(); return; }
         if (e.target.id === 'btn-leave') { leaveSpared(); return; }
+        if (e.target.id === 'btn-interrogate') { interrogateSpared(); return; }
         const fg = e.target.closest('[data-fight]');
         if (fg) { fight(parseInt(fg.dataset.fight)); return; }
         if (e.target.id === 'btn-explore') { exploreWorld(); return; }
