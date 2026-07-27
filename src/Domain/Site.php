@@ -33,6 +33,7 @@ final class Site
             'type'              => $s['type'],
             'name'              => $s['name'],
             'state'             => $s['state'],
+            'found_at'          => $s['found_at'] ?? null,
             'progress'          => (int)$s['progress'],
             'total_stages'      => count($this->stages()),
             'next_monster'      => $nextMonster['name'] ?? null,

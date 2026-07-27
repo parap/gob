@@ -93,6 +93,29 @@ function handleFinish(): void
     ]);
 }
 
+// POST /api/combat/leave — walk away now rather than waiting the window out.
+// Identical outcome to letting it run down: you left them alive. It exists so
+// sparing can be a decision the player makes, not just one they fail to undo.
+function handleLeave(): void
+{
+    $player = requirePlayer();
+    $charId = ensureCharacter((int)$player['id'], $player['username']);
+
+    $window = characterRepo()->mercyWindow($charId);
+    if (!$window) {
+        json(400, ['error' => 'Nothing is at your mercy.']);
+    }
+
+    $m = monsterRepo()->find($window['monster_id']);
+    settleMercyWindow((int)$player['id'], $charId, true);
+
+    json(200, [
+        'left'      => $m['name'] ?? 'It',
+        'relation'  => $m ? relationView((int)$player['id'], $m, $window['province_id'], $window['site_id']) : null,
+        'character' => loadCharacter($charId),
+    ]);
+}
+
 // The attitude to report alongside a fight — null when the loser was a statue
 // or a risen corpse and there is no people to hold one.
 function relationView(int $playerId, array $m, ?int $provinceId, ?int $siteId): ?array

@@ -49,9 +49,47 @@ async function loadMonsters() {
         </div>`).join('');
 }
 
+const FIGHT_MS = 1600;   // blow-by-blow bar; shorter than a full area sweep
+
+// Sweep a transient action bar 0 -> 100%, the way the explore search bar does.
+// Resolves when the sweep finishes, so an action can wait for the animation
+// and the request both: whichever takes longer sets the pace.
+function sweepBar(barId, ms) {
+    const bar = $(barId);
+    if (!bar) return Promise.resolve();
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    void bar.offsetWidth;                       // reflow so the reset takes
+    bar.style.transition = `width ${ms}ms linear`;
+    bar.style.width = '100%';
+    return new Promise(resolve => setTimeout(() => {
+        bar.style.transition = 'none';
+        bar.style.width = '0%';
+        resolve();
+    }, ms));
+}
+
+// Disable every button matching a selector for the duration of an action, so a
+// second fight can't be started on top of the first. Returns the undo.
+function lockButtons(selector) {
+    const btns = [...document.querySelectorAll(selector)];
+    const labels = btns.map(b => b.textContent);
+    btns.forEach(b => { b.disabled = true; });
+    return () => btns.forEach((b, i) => { b.disabled = false; b.textContent = labels[i]; });
+}
+
 async function fight(monsterId) {
+    const btn = document.querySelector(`[data-fight="${monsterId}"]`);
+    if (btn && btn.disabled) return;
+    const unlock = lockButtons('[data-fight]');
+    if (btn) btn.textContent = 'Fighting…';
     clearMercyBox();
+
+    const sweep = sweepBar('fight-bar', FIGHT_MS);
     const { status, body } = await req('POST', '/combat/attack', { monster_id: monsterId });
+    await sweep;
+    unlock();
+
     if (status !== 200) return;
     setCharacter(body.character);   // hp/skills/loot already updated server-side
     renderCharacter();
@@ -111,7 +149,8 @@ function renderMercyWindow(monsterName) {
             return;
         }
         box.innerHTML = `<span class="mercy-open">${esc(name)} lies at your mercy — ${left}s</span>
-            <button class="btn-mini" id="btn-finish">Finish it</button>`;
+            <button class="btn-mini" id="btn-finish">Finish it</button>
+            <button class="btn-mini" id="btn-leave">Leave</button>`;
     };
     paint();
     state.mercyTimer = setInterval(paint, 1000);
@@ -132,6 +171,21 @@ async function finishSpared() {
     if (state.mercyTimer) { clearInterval(state.mercyTimer); state.mercyTimer = null; }
     $('mercy-window').innerHTML =
         `<span class="mercy-closed">You finish ${esc(body.finished)}.${bits.length ? ' ' + esc(bits.join(', ')) : ''}</span>`;
+}
+
+// Walk away deliberately instead of waiting the countdown out. Same outcome as
+// letting it expire, so the player can choose mercy rather than just run out
+// the clock on it.
+async function leaveSpared() {
+    const { status, body } = await req('POST', '/combat/leave');
+    if (status !== 200) { loadCharacter(); return; }
+    setCharacter(body.character);
+    renderCharacter();
+    loadRelations();
+
+    if (state.mercyTimer) { clearInterval(state.mercyTimer); state.mercyTimer = null; }
+    $('mercy-window').innerHTML =
+        `<span class="mercy-closed">You leave ${esc(body.left)} where it lies.</span>`;
 }
 
 // Wipe the mercy bar (and any countdown) — a new fight supersedes whatever the
@@ -439,12 +493,16 @@ function renderWorld() {
     $('explore-pct').textContent = exploreLabel(cur.explored_pct);
 
     // Sites discovered in the current province.
-    // Sort: fresh finds newest-first, cleared at the bottom.
+    // Sort: fresh finds newest-first, cleared at the bottom. Ordering is by
+    // when it was found — id is generation order, which has nothing to do with
+    // the order the player uncovered them in.
+    const foundOrder = s => (s.found_at ? Date.parse(s.found_at.replace(' ', 'T')) : 0) || 0;
     const sites = (w.sites && w.sites[cur.id]) || [];
     const actionable = sites.filter(s => s.type !== 'road').sort((a, b) => {
         const ac = a.state === 'cleared' ? 1 : 0;
         const bc = b.state === 'cleared' ? 1 : 0;
-        return ac !== bc ? ac - bc : b.id - a.id;
+        if (ac !== bc) return ac - bc;
+        return (foundOrder(b) - foundOrder(a)) || (b.id - a.id);
     });
 
     // Partly-delved sites get their own "Currently delving" section on top.
@@ -542,8 +600,17 @@ async function travelTo(provinceId) {
 }
 
 async function delveSite(siteId) {
+    const btn = document.querySelector(`[data-delve="${siteId}"]`);
+    if (btn && btn.disabled) return;
+    const unlock = lockButtons('[data-delve]');
+    if (btn) btn.textContent = 'Fighting…';
     clearMercyBox();
+
+    const sweep = sweepBar('delve-bar', FIGHT_MS);
     const { status, body } = await req('POST', '/world/sites/advance', { site_id: siteId });
+    await sweep;
+    unlock();
+
     if (status !== 200) return;
     setCharacter(body.character);
     renderCharacter();

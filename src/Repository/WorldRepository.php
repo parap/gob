@@ -109,9 +109,16 @@ final class WorldRepository
         return $stmt->fetchAll();
     }
 
+    // Stamp found_at the first time a site is uncovered, so the list can order
+    // by discovery rather than by generation. Re-finding a retaken site keeps
+    // the original stamp only if it still has one.
     public function setSiteState(int $id, string $state): void
     {
-        $this->db->prepare('UPDATE province_sites SET state = ? WHERE id = ?')->execute([$state, $id]);
+        $this->db->prepare(
+            'UPDATE province_sites
+             SET state = ?, found_at = COALESCE(found_at, IF(? = "hidden", NULL, NOW()))
+             WHERE id = ?'
+        )->execute([$state, $state, $id]);
     }
 
     public function setSiteProgress(int $id, int $progress): void
@@ -121,8 +128,11 @@ final class WorldRepository
 
     public function setSiteProgressState(int $id, int $progress, string $state): void
     {
-        $this->db->prepare('UPDATE province_sites SET progress = ?, state = ? WHERE id = ?')
-                 ->execute([$progress, $state, $id]);
+        $this->db->prepare(
+            'UPDATE province_sites
+             SET progress = ?, state = ?, found_at = COALESCE(found_at, NOW())
+             WHERE id = ?'
+        )->execute([$progress, $state, $id]);
     }
 
     // A random still-hidden dungeon (a raid's origin), or null.

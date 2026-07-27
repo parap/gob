@@ -61,6 +61,7 @@ if (str_starts_with($path, '/api/')) {
             'GET /api/monsters'       => handleMonsters(),
             'POST /api/combat/attack' => handleAttack(),
             'POST /api/combat/finish' => handleFinish(),
+            'POST /api/combat/leave'  => handleLeave(),
             'GET /api/world'              => handleWorld(),
             'POST /api/world/explore'     => handleProvinceExplore(),
             'POST /api/world/travel'      => handleTravel(),

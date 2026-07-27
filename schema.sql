@@ -390,6 +390,10 @@ CREATE TABLE IF NOT EXISTS province_sites (
     position         DECIMAL(5,2) NOT NULL,
     concealment      SMALLINT UNSIGNED NOT NULL,
     state            ENUM('hidden','found','cleared') NOT NULL DEFAULT 'hidden',
+    -- When the player uncovered it. Sites are all generated up front, so id
+    -- order is generation order, not discovery order — the list sorts on this
+    -- so a fresh find lands on top.
+    found_at         DATETIME NULL,
     progress         SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     reward_gold      INT NOT NULL DEFAULT 0,
     bonus_gold_rate  INT NOT NULL DEFAULT 0,
