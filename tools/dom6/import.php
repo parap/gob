@@ -71,6 +71,7 @@ function genericize(string $text): string
         'Teteo Inan'            => 'the Mother Goddess',
         'Celestial Bureaucracy' => 'the Imperial Court',
         'Celestial Empire'      => 'the Eastern Empire',
+        'Rath Chimbaith'        => 'the highlands',
     ];
     foreach ($phrases as $from => $to) $text = str_replace($from, $to, $text);
 
@@ -81,7 +82,9 @@ function genericize(string $text): string
         'Anansis'   => 'Spider Lords',  'Anansi'    => 'Spider Lord',
         'Limitane'  => 'Legion',        'Erytheian' => 'Coastal',
         'Humanbreds'=> 'Beastborn',     'Humanbred' => 'Beastborn',
-        'Nemedian'  => 'Highland',      'Naginis'   => 'Serpent Maidens',
+        'Nemedians' => 'Highlanders',   'Nemedian'  => 'Highland',
+        'Fomorians' => 'the drowned folk', 'Fomorian' => 'drowned-folk',
+        'Partholonian' => 'elder',      'Naginis'   => 'Serpent Maidens',
         'Nagini'    => 'Serpent Maiden','Fianna'    => 'Clan Warriors',
         'Aphroi'    => 'Tide',          'Gileadite' => 'Zealot',
         'Teotls'    => 'Gods',          'Teotl'     => 'God',
@@ -105,11 +108,27 @@ function genericize(string $text): string
         'Eriu'        => 'the Green Isle',  'Fomoria' => 'the Drowned Isles',
         'Muuch'       => 'the Toad Lord',   'Nin'     => 'Temple Warden',
         'Ind'         => 'the eastern lands', 'Ur'    => 'the First City',
+        // Norse/Illwinter proper nouns that leaked through in unit lore. Note
+        // the replacements carry no leading article — the source text usually
+        // supplies one ("the Vanadrotts"), and doubling it reads badly.
+        'Gullveig'    => 'The Thrice-Reborn', 'Vanadrotts' => 'northern lords',
+        'Vanhalla'    => 'the blessed halls', 'Galdrasongs' => 'spell-songs',
+        'Jotunn'      => 'giant',             'Jotun'  => 'giant',
+        'Gygja'       => 'seeress',           'Seith'  => 'spirit-craft',
     ];
     foreach ($words as $from => $to) {
         $text = preg_replace('/\b' . preg_quote($from, '/') . '\b/', $to, $text);
     }
-    return $text;
+
+    // A replacement that starts with an article can collide with one already in
+    // the source ("the Abysia" -> "the the Ashlands"); tidy up after the fact.
+    $text = preg_replace('/\bthe (the\b)/i', '$1', $text);
+    // A substitution can also land at the start of a sentence in lower case.
+    return preg_replace_callback(
+        '/(^|[.!?]\s+)(\p{Ll})/u',
+        fn(array $m) => $m[1] . mb_strtoupper($m[2]),
+        $text
+    );
 }
 
 // Monster display name: a hand-picked creative name where one fits, else the
@@ -127,6 +146,12 @@ function monsterName(string $orig): string
         'Aphroi Lord'                    => 'Tide Lord',
         'Olm Sage'                       => 'Deepcave Sage',
         'Nagini'                         => 'Serpent Maiden',
+        // "Limitane Standard" is a standard-BEARER; the plain substitution
+        // (Limitane -> Legion) left a name that reads like kit, not a person.
+        'Limitane Standard'              => 'Legion Bannerman',
+        // A giant seeress stabbed and burned three times, reborn each time.
+        // "Undying" alone sounded undead, which she is not.
+        'Undying'                        => 'The Thrice-Reborn',
     ];
     return $overrides[$orig] ?? genericize($orig);
 }

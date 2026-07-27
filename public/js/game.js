@@ -69,6 +69,18 @@ function sweepBar(barId, ms) {
     }, ms));
 }
 
+// "Fighting Goblin Scout…" while the bar fills, then "… Victory!" the moment
+// it lands. Announcing the outcome as a verdict keeps the result readable at a
+// glance without having to parse the blow-by-blow log underneath.
+function setFightStatus(id, name, outcome) {
+    const el = $(id);
+    if (!el) return;
+    const who = `Fighting ${esc(name)}…`;
+    el.innerHTML = outcome
+        ? `${who} <span class="verdict ${outcome === 'win' ? 'win' : 'loss'}">${outcome === 'win' ? 'Victory!' : 'Defeat!'}</span>`
+        : who;
+}
+
 // Disable every button matching a selector for the duration of an action, so a
 // second fight can't be started on top of the first. Returns the undo.
 function lockButtons(selector) {
@@ -85,12 +97,15 @@ async function fight(monsterId) {
     if (btn) btn.textContent = 'Fighting…';
     clearMercyBox();
 
+    const name = state.monsters.find(m => m.id === monsterId)?.name || 'it';
+    setFightStatus('fight-status', name);
     const sweep = sweepBar('fight-bar', FIGHT_MS);
     const { status, body } = await req('POST', '/combat/attack', { monster_id: monsterId });
     await sweep;
     unlock();
 
-    if (status !== 200) return;
+    if (status !== 200) { $('fight-status').innerHTML = ''; return; }
+    setFightStatus('fight-status', name, body.outcome);
     setCharacter(body.character);   // hp/skills/loot already updated server-side
     renderCharacter();
     await loadSettlements();            // gold reward may have landed
@@ -606,12 +621,18 @@ async function delveSite(siteId) {
     if (btn) btn.textContent = 'Fighting…';
     clearMercyBox();
 
+    // The site payload already names whatever guards the next stage.
+    const cur  = (state.world?.provinces || []).find(p => p.is_current);
+    const site = ((state.world?.sites || {})[cur?.id] || []).find(s => s.id === siteId);
+    const name = site?.next_monster || site?.name || 'it';
+    setFightStatus('delve-status', name);
     const sweep = sweepBar('delve-bar', FIGHT_MS);
     const { status, body } = await req('POST', '/world/sites/advance', { site_id: siteId });
     await sweep;
     unlock();
 
-    if (status !== 200) return;
+    if (status !== 200) { $('delve-status').innerHTML = ''; return; }
+    setFightStatus('delve-status', name, body.combat.outcome);
     setCharacter(body.character);
     renderCharacter();
     await Promise.all([loadWorld(), loadSettlements(), loadVillage(), loadRelations()]);

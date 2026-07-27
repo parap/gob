@@ -250,6 +250,12 @@ input:focus { outline: none; border-color: var(--accent); }
 .search-progress .explore-fill { background: #4e77c0; }
 /* Same transient bar for a fight, in blood red rather than search blue. */
 .fight-progress .explore-fill { background: #c05a4e; }
+/* "Fighting Goblin Scout… Victory!" — sits above the bar while it fills. */
+.fight-status { font-size: 0.85rem; color: var(--muted); min-height: 1.2em; }
+.fight-status:empty { min-height: 0; }
+.fight-status .verdict { font-weight: 600; }
+.fight-status .verdict.win { color: #a7d488; }
+.fight-status .verdict.loss { color: #e0857c; }
 #explore-result { display: block; }
 .find-line { font-size: 0.82rem; color: var(--text); }
 .find-line:first-child { margin-top: 0.25rem; }
