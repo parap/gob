@@ -57,6 +57,9 @@ final class RelationshipRepository
         int $trustDelta = 0,
         int $hostilityFloor = Relationship::MIN,
     ): void {
+        if (!Relationship::tracksOpinion($race)) {
+            return;   // nobody there to remember it
+        }
         $rows   = $this->scopeRows($playerId, $race, $provinceId, $siteId);
         $target = [];
         if ($siteId !== null)     $target[] = 'site';

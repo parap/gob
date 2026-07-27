@@ -27,21 +27,36 @@ final class Relationship
     public const MIN = 0;
     public const MAX = 100;
 
-    // Where a race stands before the player has done anything to it. Everyone
-    // starts hostile-ish; the point of the slice is that this can move.
+    // Where a people stands before the player has done anything to them.
+    // These are peoples, not body types or natures: a construct has no entry
+    // here because "constructs" are not a people who can think about you.
     public const START_HOSTILITY = [
-        'goblin'    => 80,
-        'human'     => 70,   // bandits — the only hostile humans so far
-        'giant'     => 85,
-        'animal'    => 55,   // wolves fight from hunger, not hatred
-        'construct' => 100,
-        'undead'    => 100,
+        'goblin'     => 80,
+        'orc'        => 85,
+        'ogre'       => 85,
+        'giant'      => 80,
+        'spiderfolk' => 75,
+        'human'      => 70,   // the humans you meet in the wild are bandits
+        'beastkin'   => 65,
+        'wolf'       => 55,   // beasts fight from hunger, not hatred
+        'tiger'      => 60,
+        'naga'       => 55,
+        'merfolk'    => 60,
+        'triton'     => 60,
+        'dwarf'      => 55,
+        'olm'        => 45,   // deep-cave scholars, slow to anger
+        'elf'        => 50,
+        'fae'        => 50,
     ];
     public const START_HOSTILITY_DEFAULT = 75;
     public const START_TRUST = 0;
 
-    // Nobody home to spare: the mercy stance has no effect on these (§3).
-    public const UNSPARABLE_RACES = ['construct', 'undead'];
+    // Nobody home to spare — keyed off what a thing IS, not who its people
+    // are. A risen corpse and a war statue ignore the mercy stance (§3).
+    public const UNSPARABLE_NATURES = ['undead', 'construct', 'plant'];
+
+    // Race values that name no people, so no one is left to form an opinion.
+    private const NO_PEOPLE = ['none', 'unknown', ''];
 
     // Share of encounters that won't be taken alive whatever your stance —
     // a flat roll for now, a `fanatic` monster tag later (§3).
@@ -70,9 +85,17 @@ final class Relationship
         return self::START_HOSTILITY[$race] ?? self::START_HOSTILITY_DEFAULT;
     }
 
-    public static function isSparable(string $race): bool
+    public static function isSparable(string $nature): bool
     {
-        return !in_array($race, self::UNSPARABLE_RACES, true);
+        return !in_array($nature, self::UNSPARABLE_NATURES, true);
+    }
+
+    // Whether anyone is there to remember what the player did. Statues, risen
+    // corpses and walking vines have no kin to tell and no opinion to hold, so
+    // no relationship rows are kept for them at all.
+    public static function tracksOpinion(string $race): bool
+    {
+        return !in_array($race, self::NO_PEOPLE, true);
     }
 
     // Roll whether this particular enemy would rather die than be taken alive.

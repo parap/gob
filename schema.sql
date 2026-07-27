@@ -225,9 +225,21 @@ CREATE TABLE IF NOT EXISTS monsters (
     reward_gold  INT NOT NULL DEFAULT 0,
     loot_item_id INT UNSIGNED NULL,
     loot_chance  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    -- Three separate axes, deliberately not one column:
+    --   race   = the PEOPLE it belongs to (goblin, human, dwarf, naga...).
+    --            'none' means there is no people here — a statue, a risen
+    --            corpse, a walking vine — and no relationship is tracked.
+    --   nature = what animates it. Decides whether it can be spared.
+    --   nation = the country it belongs to, where its name implies one. Data
+    --            only for now: standing is tracked per race, so all humans
+    --            currently share one reputation.
     race         VARCHAR(24) NOT NULL DEFAULT 'unknown',
+    nature       ENUM('mortal','beast','magical','undead','construct','plant')
+                 NOT NULL DEFAULT 'mortal',
+    nation       VARCHAR(24) NULL,
     alignment    ENUM('good','neutral','evil') NOT NULL DEFAULT 'neutral',
     description  TEXT NULL,
+    KEY idx_monster_race (race),
     FOREIGN KEY (loot_item_id) REFERENCES items(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -248,18 +260,20 @@ INSERT IGNORE INTO monsters
     (5, 'Goblin Warlord', 3,  90, 12, 3, 2, 2,  80,  2, 20, 'The banner-bearer of the warren.'),
     (6, 'Crypt Guardian', 6, 200, 20, 6, 6, 4, 200, 14, 25, 'An animated colossus of bone and iron.');
 
--- Race / alignment / tags for the seeded monsters (idempotent).
-UPDATE monsters SET race = 'goblin',    alignment = 'evil'    WHERE id = 1;
-UPDATE monsters SET race = 'animal',    alignment = 'neutral' WHERE id = 2;
-UPDATE monsters SET race = 'human',     alignment = 'evil'    WHERE id = 3;
-UPDATE monsters SET race = 'giant',     alignment = 'evil'    WHERE id = 4;
-UPDATE monsters SET race = 'goblin',    alignment = 'evil'    WHERE id = 5;
-UPDATE monsters SET race = 'construct', alignment = 'evil'    WHERE id = 6;
+-- Race / nature / nation / alignment for the seeded monsters (idempotent).
+-- Kept in step with tools/dom6/identity.php, which does the same for imports.
+UPDATE monsters SET race='goblin', nature='mortal',    alignment='evil'    WHERE id = 1;
+UPDATE monsters SET race='wolf',   nature='beast',     alignment='neutral' WHERE id = 2;
+UPDATE monsters SET race='human',  nature='mortal',    alignment='evil'    WHERE id = 3;
+UPDATE monsters SET race='ogre',   nature='mortal',    alignment='evil'    WHERE id = 4;
+UPDATE monsters SET race='goblin', nature='mortal',    alignment='evil'    WHERE id = 5;
+UPDATE monsters SET race='none',   nature='construct', alignment='evil'    WHERE id = 6;
 
+-- Tags stay descriptive (body type, habits, disposition) — never the race.
 INSERT IGNORE INTO monster_tags (monster_id, tag) VALUES
     (1, 'humanoid'), (1, 'goblin'), (1, 'evil'),
     (2, 'animal'),   (2, 'beast'),  (2, 'neutral'),
-    (3, 'humanoid'), (3, 'evil'),
+    (3, 'humanoid'), (3, 'evil'),   (3, 'outlaw'),
     (4, 'humanoid'), (4, 'giant'),  (4, 'evil'),
     (5, 'humanoid'), (5, 'goblin'), (5, 'evil'),
     (6, 'inanimate'),(6, 'undead'), (6, 'evil');

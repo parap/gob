@@ -24,14 +24,15 @@ function drn(): int
 }
 function twoDRN(): int { return drn() + drn(); }
 
-// Which monster races/tags fit each terrain.
+// Which peoples / natures / tags fit each terrain. Matched against a monster's
+// race, its nature, or any of its tags, so a pool can mix all three.
 const TERRAIN_POOLS = [
-    'plains'    => ['human', 'goblin', 'animal', 'humanoid'],
-    'forest'    => ['animal', 'beast', 'magic'],
-    'mountains' => ['giant', 'construct', 'humanoid'],
-    'swamp'     => ['undead', 'aquatic', 'animal', 'cold-blooded'],
-    'city'      => ['human', 'humanoid', 'magic'],
-    'caves'     => ['construct', 'magic', 'undead', 'demon'],
+    'plains'    => ['human', 'goblin', 'wolf', 'beast'],
+    'forest'    => ['beast', 'wolf', 'tiger', 'fae', 'plant', 'beastkin'],
+    'mountains' => ['giant', 'ogre', 'dwarf', 'construct'],
+    'swamp'     => ['undead', 'naga', 'aquatic', 'cold-blooded'],
+    'city'      => ['human', 'magical', 'humanoid'],
+    'caves'     => ['construct', 'undead', 'olm', 'spiderfolk', 'goblin'],
 ];
 const TERRAINS = ['plains', 'forest', 'mountains', 'swamp', 'city', 'caves'];
 

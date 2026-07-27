@@ -32,10 +32,22 @@ Running list of loose ends and next steps. See `ideas.md` (raw brainstorm) and
       promoting a spared individual to a persistent NPC (§10).
 
 ## Tuning (numbers picked to ship, all open per `future_implementation.md` §11)
-- [ ] `Relationship::START_HOSTILITY` per race — the Dominions import brought in
-      races the table doesn't name (`humanoid`, `magical`), which fall back to 75.
+- [x] **Race taxonomy split into three axes.** `monsters.race` used to mix
+      peoples, natures and body types (24 monsters had the "race" `humanoid`).
+      Now `race` = the people, `nature` = mortal/beast/magical/undead/construct/
+      plant, `nation` = the country where the name implies one. Sparability keys
+      off nature; `race = 'none'` (statues, risen corpses, walking vines) tracks
+      no relationship at all. Curated in `tools/dom6/identity.php`.
+- [ ] **Nations are data only.** Every human shares one standing regardless of
+      country. Splitting them means a nation scope nested under race (inheriting
+      from it, deeds halving outward) — deferred deliberately, not forgotten.
+- [ ] `Relationship::START_HOSTILITY` per people — 16 named, everything else
+      falls back to 75.
 - [ ] Stage thresholds (70 / 40 hostility, 25 / 60 trust), the spare drop (−6)
       vs. kill rise (+2), and the 25% fanatic rate. All are single constants.
+- [ ] **`alignment` is still derived from the Dominions `holy` flag**, which is
+      why the Mad Cultist is "good". Lower priority — nothing reads alignment
+      mechanically yet, but it shows in the UI badges.
 
 ## Housekeeping
 - [ ] **Refresh project memory** — it hasn't been updated since the RPG-layer slice

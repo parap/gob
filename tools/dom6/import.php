@@ -131,8 +131,14 @@ function monsterName(string $orig): string
     return $overrides[$orig] ?? genericize($orig);
 }
 
-// Derive [race, alignment, tags[]] from Dominions boolean flag columns.
-function classifyMonster(array $u): array
+// Derive [race, nature, nation, alignment, tags[]] for one unit.
+//
+// The CSVs carry nature flags but no race and no nation, so those two come from
+// the hand-authored table in identity.php, keyed by the final display name.
+// Only the nature falls back to the flags when a monster isn't listed there —
+// guessing a *people* from "is it inanimate" is exactly the mistake that once
+// filed two dozen monsters under the race 'humanoid'.
+function classifyMonster(array $u, string $displayName, array $identity): array
 {
     $flag = fn(string $k) => trim($u[$k] ?? '') === '1';
     $size = num($u['size'] ?? '');
@@ -142,41 +148,49 @@ function classifyMonster(array $u): array
     $inan   = $flag('inanimate') || $flag('stonebeing');
     $magic  = $flag('magicbeing');
     $animal = $flag('animal');
+    $plant  = $flag('plant');
     $holy   = $flag('holy');
 
-    if ($undead)          $race = 'undead';
-    elseif ($demon)       $race = 'demon';
-    elseif ($inan)        $race = 'construct';
-    elseif ($animal)      $race = 'animal';
-    elseif ($magic)       $race = 'magical';
-    elseif ($size >= 5)   $race = 'giant';
-    else                  $race = 'humanoid';
+    if ($undead)      $nature = 'undead';
+    elseif ($inan)    $nature = 'construct';
+    elseif ($plant)   $nature = 'plant';
+    elseif ($animal)  $nature = 'beast';
+    elseif ($magic)   $nature = 'magical';
+    else              $nature = 'mortal';
+
+    // Curated identity wins outright where we have one.
+    [$race, $nature, $nation] = $identity[$displayName] ?? ['unknown', $nature, null];
 
     if ($undead || $demon) $align = 'evil';
     elseif ($holy)         $align = 'good';
     else                   $align = 'neutral';
 
     $tags = [];
+    if ($nation !== null) $tags[] = $nation;
     if ($undead) $tags[] = 'undead';
     if ($demon)  $tags[] = 'demon';
     if ($inan)   $tags[] = 'inanimate';
     if ($magic)  $tags[] = 'magic';
+    if ($plant)  $tags[] = 'plant';
     if ($animal) { $tags[] = 'animal'; $tags[] = 'beast'; }
     if ($holy)   $tags[] = 'holy';
     if ($flag('coldblood')) $tags[] = 'cold-blooded';
     if ($flag('female'))    $tags[] = 'female';
     if ($flag('flying'))    $tags[] = 'flying';
-    if ($flag('aquatic') || $flag('amphibian')) $tags[] = 'aquatic';
+    // Dominions sets `amphibian` on plenty of dry-land troops, so only the
+    // genuine `aquatic` flag earns the aquatic tag; amphibian is its own tag.
+    if ($flag('aquatic'))   $tags[] = 'aquatic';
+    if ($flag('amphibian')) $tags[] = 'amphibian';
     if ($flag('mounted'))   $tags[] = 'mounted';
     if ($size >= 5)         $tags[] = 'giant';
-    if (!$undead && !$demon && !$inan && !$magic && !$animal) $tags[] = 'humanoid';
+    if (!$undead && !$demon && !$inan && !$magic && !$animal && !$plant) $tags[] = 'humanoid';
     $tags[] = $align;
 
-    return [$race, $align, array_values(array_unique($tags))];
+    return [$race, $nature, $nation, $align, array_values(array_unique($tags))];
 }
 
 // ---------- monsters ----------
-function buildMonsters(array $units, string $site, int $count): array
+function buildMonsters(array $units, string $site, int $count, array $identity): array
 {
     $seen = [];
     $pool = [];
@@ -213,10 +227,11 @@ function buildMonsters(array $units, string $site, int $count): array
         $bc   = num($u['basecost']);
         $gold = ($bc >= 1 && $bc < 1000) ? $bc * 2 : (int)round($hp / 3);
         $gold = clampi($gold, 5, 500);
-        [$race, $align, $tags] = classifyMonster($u);
+        $name = monsterName($u['name']);
+        [$race, $nature, $nation, $align, $tags] = classifyMonster($u, $name, $identity);
         $out[] = [
             'id'          => $id++,
-            'name'        => monsterName($u['name']),
+            'name'        => $name,
             'level'       => clampi($hp / 15, 1, 25),
             'hp'          => $hp,
             'attack'      => $att,
@@ -227,6 +242,8 @@ function buildMonsters(array $units, string $site, int $count): array
             'loot_item_id'=> null,
             'loot_chance' => 0,
             'race'        => $race,
+            'nature'      => $nature,
+            'nation'      => $nation,
             'alignment'   => $align,
             'description' => genericize(unitDescr($site, $u['id'])),
             'tags'        => $tags,   // stripped before upsert; inserted into monster_tags
@@ -403,8 +420,11 @@ foreach (loadTsv("$DIR/weapons.csv") as $w) $weapons[$w['id']] = $w;
 $armors  = [];
 foreach (loadTsv("$DIR/armors.csv") as $a) $armors[$a['id']] = $a;
 
+// Race / nature / nation the CSVs cannot supply (see identity.php).
+$identity = require __DIR__ . '/identity.php';
+
 fwrite(STDERR, "Building + fetching monster descriptions...\n");
-$monsters = buildMonsters($units, $SITE, $MONSTER_COUNT);
+$monsters = buildMonsters($units, $SITE, $MONSTER_COUNT, $identity);
 fwrite(STDERR, "Building + fetching item descriptions...\n");
 $gear = buildItems($items, $weapons, $armors, $SITE, $ITEMS_PER_SLOT);
 

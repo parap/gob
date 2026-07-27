@@ -621,6 +621,14 @@ Schema (sketch):
 - `player_quests (id, player_id, race, template_key, target_json, state, reward_json, created_at)`
   — instances; templates live in PHP code.
 - `characters.mercy TINYINT` — the stance toggle.
+- Monsters carry **three separate axes**, not one `race` (fixed 2026-07-27):
+  `race` = the people who can hold an opinion (`'none'` for statues/corpses/vines,
+  which track no relationship), `nature` = mortal/beast/magical/undead/construct/
+  plant (this is what decides sparability), `nation` = the country, where the name
+  implies one. Nation is **data only** for now — standing is keyed per race, so
+  all humans share one reputation; splitting them later means a nation scope
+  nested under race. Hand-authored in `tools/dom6/identity.php` because the
+  Dominions CSVs carry nature flags but no race and no nation.
 - New skills into `CHARACTER_SKILLS` (character.php): `linguistics/lang_*`, `empathy`,
   `survival`, `lore/lore_*`. (Global vs per-race granularity still OPEN — see §11.)
 

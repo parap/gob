@@ -88,11 +88,20 @@ function handleFinish(): void
     json(200, [
         'finished'  => $m['name'],
         'rewards'   => $rewards,
-        'relation'  => relationRepo()
-            ->effective((int)$player['id'], (string)($m['race'] ?? 'unknown'), $window['province_id'], $window['site_id'])
-            ->toArray(),
+        'relation'  => relationView((int)$player['id'], $m, $window['province_id'], $window['site_id']),
         'character' => loadCharacter($charId),
     ]);
+}
+
+// The attitude to report alongside a fight — null when the loser was a statue
+// or a risen corpse and there is no people to hold one.
+function relationView(int $playerId, array $m, ?int $provinceId, ?int $siteId): ?array
+{
+    $race = (string)($m['race'] ?? 'unknown');
+    if (!Relationship::tracksOpinion($race)) {
+        return null;
+    }
+    return relationRepo()->effective($playerId, $race, $provinceId, $siteId)->toArray();
 }
 
 // Close out a mercy window as a spare: the enemy was left alive, so the deed
@@ -174,7 +183,7 @@ function mercyOutcome(bool $stance, array $m): string
     if (!$stance) {
         return 'off';
     }
-    if (!Relationship::isSparable((string)($m['race'] ?? 'unknown'))) {
+    if (!Relationship::isSparable((string)($m['nature'] ?? 'mortal'))) {
         return 'unsparable';   // no one home to spare — bone and iron
     }
     if (Relationship::rollFanatic()) {
@@ -279,8 +288,6 @@ function resolveFight(array $player, int $charId, array $m, ?int $siteId = null)
         'hero_hp_after' => $finalHp,
         'rewards'       => $rewards,
         'mercy'         => $mercy,
-        'relation'      => relationRepo()
-            ->effective((int)$player['id'], (string)($m['race'] ?? 'unknown'), $provinceId, $siteId)
-            ->toArray(),
+        'relation'      => relationView((int)$player['id'], $m, $provinceId, $siteId),
     ];
 }

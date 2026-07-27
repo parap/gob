@@ -26,6 +26,8 @@ final class Monster
             'penetration' => (int)$m['penetration'],
             'reward_gold' => (int)$m['reward_gold'],
             'race'        => $m['race'] ?? 'unknown',
+            'nature'      => $m['nature'] ?? 'mortal',
+            'nation'      => $m['nation'] ?? null,
             'alignment'   => $m['alignment'] ?? 'neutral',
             'tags'        => $this->tags,
             'description' => $m['description'] ?? '',

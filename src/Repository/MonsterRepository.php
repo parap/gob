@@ -27,9 +27,9 @@ final class MonsterRepository
         return $stmt->fetch() ?: null;
     }
 
-    // Candidate monster ids for world-gen: those whose race or tag is in $pool
-    // and whose level sits in a band around $level. Falls back to any in-band
-    // monster, then to [1], so a province can always be populated.
+    // Candidate monster ids for world-gen: those whose race, nature, nation or
+    // tag is in $pool and whose level sits in a band around $level. Falls back
+    // to any in-band monster, then to [1], so a province is always populatable.
     public function terrainCandidates(array $pool, int $level): array
     {
         $lo = max(1, $level - 2);
@@ -40,9 +40,10 @@ final class MonsterRepository
             $stmt = $this->db->prepare(
                 "SELECT DISTINCT m.id FROM monsters m
                  LEFT JOIN monster_tags t ON t.monster_id = m.id
-                 WHERE (m.race IN ($ph) OR t.tag IN ($ph)) AND m.level BETWEEN ? AND ?"
+                 WHERE (m.race IN ($ph) OR m.nature IN ($ph) OR m.nation IN ($ph) OR t.tag IN ($ph))
+                   AND m.level BETWEEN ? AND ?"
             );
-            $stmt->execute([...$pool, ...$pool, $lo, $hi]);
+            $stmt->execute([...$pool, ...$pool, ...$pool, ...$pool, $lo, $hi]);
             $ids = array_map('intval', array_column($stmt->fetchAll(), 'id'));
             if ($ids) {
                 return $ids;
