@@ -7,7 +7,7 @@ real game is about **changing your model of the world**: as you learn skills
 deeper layers, and you can talk, trade, and side with the creatures you used
 to just fight.
 
-See `ideas.txt` for the full design direction.
+See `ideas.md` for the full design direction.
 
 ## Stack
 

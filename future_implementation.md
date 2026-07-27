@@ -2,7 +2,7 @@
 
 Forward-looking design for the **"change your model of the world"** RPG layer
 (talk to / spare / befriend the creatures you used to only fight). Companion to
-`ideas.txt` (the raw brainstorm). This file is the **agreed direction** distilled
+`ideas.md` (the raw brainstorm). This file is the **agreed direction** distilled
 from a design discussion on 2026-07-24 — a plan to build against later, **not yet
 implemented**.
 
@@ -17,7 +17,7 @@ VARCHAR-keyed extensible `character_skills`.
 
 Progression changes **what the player can perceive and do**, not raw power.
 First hours = ordinary hack-and-slash. Over time the *same* monsters and places
-reveal deeper layers. See `ideas.txt` for the full vision; this doc is the
+reveal deeper layers. See `ideas.md` for the full vision; this doc is the
 practical, agreed subset.
 
 ### Two layers: hidden & opt-in  (AGREED)
@@ -94,7 +94,7 @@ Rules:
 - Therefore: **you cannot befriend a race by looting-and-sparing. You can only
   stop being its enemy.** Friendship is earned deliberately, later.
 
-Stage ladder (from ideas.txt §4): `0 Monster → 1 Curious → 2 Neutral →
+Stage ladder (from ideas.md §4): `0 Monster → 1 Curious → 2 Neutral →
 3 Friendly → 4 Ally`. Sparing gets you to ~Neutral; help carries the rest.
 
 (The full CK-style axis set — Respect / Gratitude / Hatred / Debt / Curiosity —
@@ -273,13 +273,13 @@ Once your skill in a tongue exceeds ~a mid ("readable literacy") threshold, you 
   (§4): a book may contain something a current quest needs.
 
 Sources: loot, bought in a village/town hub, or found in dungeon libraries/archives
-(ties to the "Archives" that resolve contradictory histories — ideas.txt §10 /
+(ties to the "Archives" that resolve contradictory histories — ideas.md §10 /
 "contradictory accounts").
 
 ### Other sources (keep)
 
 - Rare **phrasebook / captured writings** loot → jump-start the first words.
-- A **neutral intermediary** (ideas.txt §2 ladder: animals → wolves → …).
+- A **neutral intermediary** (ideas.md §2 ladder: animals → wolves → …).
 
 **First concrete payoff of language = Interrogate (§4)**, long before "be friends".
 
@@ -658,7 +658,7 @@ Then expand race-by-race. (Contradictory truth / Verified / Common come later.)
 - **Skill granularity**: global vs per-race vs hybrid (empathy/survival global,
   language/lore per-race). Leaning hybrid; not decided.
 - **Interrogate tuning**: exact chance curve; does Empathy add lie-detection?
-- **Flee & catch** (ideas.txt §3: civilians flee, pursue via dex check) — deferred,
+- **Flee & catch** (ideas.md §3: civilians flee, pursue via dex check) — deferred,
   possibly folds into the mercy/temperament system.
 - **Per-race mercy toggle** (spare goblins, cull wolves) — ship global first, this
   is a later UI expansion.
