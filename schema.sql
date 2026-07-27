@@ -90,6 +90,13 @@ CREATE TABLE IF NOT EXISTS characters (
     spared_site_id     INT UNSIGNED NULL,
     spared_province_id INT UNSIGNED NULL,
     spared_at          DATETIME NULL,
+
+    -- The one training slot (§5): a skill being taught, how much the session
+    -- will add, and when it lands. Applied lazily on the next character read,
+    -- like regen — no background worker.
+    training_skill     VARCHAR(32) NULL,
+    training_gain      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    training_ends_at   DATETIME NULL,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -427,6 +434,10 @@ CREATE TABLE IF NOT EXISTS npcs (
     settlement_id INT UNSIGNED NULL,
     site_id       INT UNSIGNED NULL,
     province_id   INT UNSIGNED NULL,
+    -- What tongue this NPC can teach, and how far (§5). teach_ceiling is rolled
+    -- once per NPC: a village scholar knows fragments, a native speaker plenty.
+    teaches       VARCHAR(24)  NULL,
+    teach_ceiling SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     state         VARCHAR(16)  NOT NULL DEFAULT 'active',
     created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_npc_player (player_id),

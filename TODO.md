@@ -20,10 +20,20 @@ Running list of loose ends and next steps. See `ideas.md` (raw brainstorm) and
       mercy stance, two-axis relationships blended over generic/province/site,
       spare-lowers-Hostility capped at Neutral, the 30s mercy window with
       Finish, and the random fanatic roll.
-- [ ] **Step 3 — language skill + Interrogate.** The mercy window currently
-      offers only Finish or letting them crawl off; Interrogate is what makes
-      sparing pay a *different* currency instead of just costing loot. Needs a
-      `lang_goblin`-style skill first (§5), so it lands with tutors.
+- [x] **Step 3a — language skill + tutors.** Languages are ordinary skills named
+      `lang_<race>`, never trained by use. Scholar Yves teaches Goblin tongue for
+      gold + time: one training slot, a semi-random per-tutor ceiling, and each
+      session closing 35% of the gap to it, so he tops out around "broken" and
+      real fluency will need goblin tutors. Nothing advertises it — his row just
+      says "Ask", like everyone else's.
+- [ ] **Step 3b — Interrogate.** A third button in the mercy window, gated on
+      `lang_goblin >= Language::FRAGMENTS`. This is the payoff that makes mercy
+      worth its cost: the corpse that used to pay gold pays intel instead.
+      Yields lore/intel now; quest-relevant clues once the info model lands.
+- [ ] **Tutors of other races.** `Tutor::CEILING_NATIVE` (65-95) is written and
+      unused: a goblin tutor is the only way past "broken", and reaching one
+      means getting goblin Hostility down first — which closes the loop the
+      mercy slice opened. Needs promoted NPCs or a goblin dwelling to host them.
 - [ ] **Reciprocal mercy** (§3, designed but not built): on a *loss*, the race's
       attitude should decide the outcome — hostile robs you, neutral spares you,
       friendly patches you up. Currently every defeat is the old flat 1 HP.

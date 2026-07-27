@@ -76,6 +76,38 @@ final class SettlementRepository
         }
     }
 
+    // Take gold from the primary settlement if it can cover the cost (settle
+    // production first, so gold earned since the last read counts). Returns
+    // false and changes nothing when the player can't afford it.
+    public function spendGold(int $playerId, int $gold): bool
+    {
+        if ($gold <= 0) {
+            return true;
+        }
+        $sel = $this->db->prepare('SELECT * FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
+        $sel->execute([$playerId]);
+        $s = $sel->fetch();
+        if (!$s) {
+            return false;
+        }
+        $s = $this->tick($s);
+        if ((int)$s['gold'] < $gold) {
+            return false;
+        }
+        $this->db->prepare('UPDATE settlements SET gold = GREATEST(0, gold - ?) WHERE id = ?')
+                 ->execute([$gold, $s['id']]);
+        return true;
+    }
+
+    // Current gold in the primary settlement, production settled.
+    public function gold(int $playerId): int
+    {
+        $sel = $this->db->prepare('SELECT * FROM settlements WHERE player_id = ? ORDER BY id LIMIT 1');
+        $sel->execute([$playerId]);
+        $s = $sel->fetch();
+        return $s ? (int)$this->tick($s)['gold'] : 0;
+    }
+
     // Adjust the primary settlement's production rates (settle first; floor at 0).
     public function adjustRates(int $playerId, int $gold, int $wood, int $stone): void
     {

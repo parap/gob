@@ -251,6 +251,41 @@ function renderCombat(r, targetId = 'combat-log') {
     renderMercyWindow(r.monster.name);
 }
 
+// ── Tuition: the one training slot ───────────────────────────────────────────
+
+function clock(seconds) {
+    const m = Math.floor(seconds / 60), s = seconds % 60;
+    return m ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
+}
+
+// Ticked once a second alongside the vitals. When the lesson's time is up the
+// skill is banked server-side on the next character read, so we fetch once.
+function renderTraining() {
+    const box = $('training-slot');
+    if (!box) return;
+    const t = state.character?.training;
+    if (!t || !state.trainingDeadline) { box.innerHTML = ''; return; }
+
+    const left = Math.ceil((state.trainingDeadline - Date.now()) / 1000);
+    if (left <= 0) {
+        box.innerHTML = `<span class="mercy-closed">You finish studying ${esc(t.label)}.</span>`;
+        if (!state.trainingSettling) {   // one fetch, not one per tick
+            state.trainingSettling = true;
+            loadCharacter().then(loadVillage);
+        }
+        return;
+    }
+    box.innerHTML = `<span class="training-open">Studying ${esc(t.label)} — ${clock(left)} left (+${t.gain})</span>`;
+}
+
+async function startTraining(npcId) {
+    const { status, body } = await req('POST', '/training/start', { npc_id: npcId });
+    if (status !== 201 && status !== 200) return;
+    setCharacter(body.character);
+    renderCharacter();
+    await Promise.all([loadSettlements(), loadVillage()]);   // fee left the coffers
+}
+
 // ── Standing: how each race currently sees you ───────────────────────────────
 
 async function loadRelations() {
@@ -297,9 +332,11 @@ function vitalBar(label, value, max) {
 function setCharacter(c) {
     c.vitalsFetchedAt = Date.now();
     state.character = c;
-    // Turn the server's remaining seconds into a local deadline once, so the
-    // countdown survives unrelated re-renders.
+    // Turn the server's remaining seconds into local deadlines once, so the
+    // countdowns survive unrelated re-renders.
     state.mercyDeadline = c.mercy_window ? Date.now() + c.mercy_window.seconds_left * 1000 : null;
+    state.trainingDeadline = c.training ? Date.now() + c.training.seconds_left * 1000 : null;
+    if (c.training) state.trainingSettling = false;
 }
 
 // Project current HP forward from the regen rate since the last fetch.
@@ -692,7 +729,7 @@ function updateResources() {
 
 function startTicker() {
     if (state.ticker) clearInterval(state.ticker);
-    state.ticker = setInterval(() => { updateResources(); renderVitals(); }, 1000);
+    state.ticker = setInterval(() => { updateResources(); renderVitals(); renderTraining(); }, 1000);
 }
 
 // ── Village: resident NPCs + quests ──────────────────────────────────────────
@@ -707,8 +744,10 @@ async function loadVillage() {
 // One NPC row: shows name + profession, and an "Ask" button when they have a
 // quest to offer (the blurb is the tooltip). Idle NPCs show a dash.
 function npcRow(npc) {
-    const action = npc.offer
-        ? `<button class="btn-mini" data-ask="${npc.id}" title="${esc(npc.offer.blurb)}">Ask</button>`
+    // Anyone with anything at all gets the same plain "Ask" — the button never
+    // hints at what they have, so tuition is found by asking, not by being told.
+    const action = (npc.offer || npc.tuition)
+        ? `<button class="btn-mini" data-ask="${npc.id}">Ask</button>`
         : `<span class="muted">Nothing for you.</span>`;
     return `<div class="location">
         <div class="loc-info">
@@ -746,20 +785,38 @@ function renderVillage() {
         : '<p class="muted">No quests. Ask around the village.</p>';
 }
 
-// Open the elder's (or any NPC's) quest offer as a dialogue you can accept/decline.
-function openQuestDialog(npcId) {
+// Ask an NPC what they have: a quest, tuition, or both.
+function openNpcDialog(npcId) {
     const npc = (state.village && state.village.npcs || []).find(n => n.id === npcId);
-    if (!npc || !npc.offer) return;
-    const paras = (npc.offer.dialog || npc.offer.blurb || '')
-        .split('\n\n').map(p => `<p>${esc(p)}</p>`).join('');
+    if (!npc || (!npc.offer && !npc.tuition)) return;
+
+    let body = '';
+    let actions = '<button class="btn-ghost" data-modal-close>Leave</button>';
+
+    if (npc.offer) {
+        const paras = (npc.offer.dialog || npc.offer.blurb || '')
+            .split('\n\n').map(p => `<p>${esc(p)}</p>`).join('');
+        body += `<div class="dialog-text">${paras}</div>
+                 <p class="muted">Quest: <b>${esc(npc.offer.title)}</b></p>`;
+        actions += `<button class="btn" data-quest-accept="${npc.id}">Accept</button>`;
+    }
+
+    // Tuition is stated flatly, as a service with a price — no pitch about
+    // what knowing a tongue might one day be good for.
+    const t = npc.tuition;
+    if (t) {
+        body += `<div class="dialog-text"><p>They can teach you the ${esc(t.label.toLowerCase())}.
+                 You speak it <b>${esc(t.fluency)}</b>.</p></div>`;
+        body += t.can
+            ? `<p class="muted">Lesson: <b>+${t.gain}</b> for <b>${t.price} gold</b>, ${clock(t.seconds)} of study.</p>`
+            : `<p class="muted">${esc(t.reason)}</p>`;
+        if (t.can) actions += `<button class="btn" data-learn="${npc.id}">Pay ${t.price}g</button>`;
+    }
+
     openModal(`
         <h2>${esc(npc.name)} <span class="muted">— ${esc(npc.profession)}</span></h2>
-        <div class="dialog-text">${paras}</div>
-        <p class="muted">Quest: <b>${esc(npc.offer.title)}</b></p>
-        <div class="modal-actions">
-            <button class="btn-ghost" data-modal-close>Decline</button>
-            <button class="btn" data-quest-accept="${npc.id}">Accept</button>
-        </div>`);
+        ${body}
+        <div class="modal-actions">${actions}</div>`);
 }
 
 async function acceptQuest(npcId) {

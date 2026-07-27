@@ -61,6 +61,25 @@ final class Character
     public function id(): int { return (int)$this->row['id']; }
     public function name(): string { return (string)$this->row['name']; }
 
+    // The lesson currently being taught, or null. A finished one is banked by
+    // CharacterRepository before this ever sees it, so anything reported here
+    // is still running.
+    public function training(): ?array
+    {
+        $c = $this->row;
+        if (empty($c['training_skill']) || empty($c['training_ends_at'])) {
+            return null;
+        }
+        return [
+            'skill'        => (string)$c['training_skill'],
+            'label'        => Language::isLanguage((string)$c['training_skill'])
+                ? Language::label((string)$c['training_skill'])
+                : (string)$c['training_skill'],
+            'gain'         => (int)$c['training_gain'],
+            'seconds_left' => max(0, strtotime($c['training_ends_at']) - time()),
+        ];
+    }
+
     // The open mercy window, or null if there is none / it has run out. Only
     // reports it — settling an expired window is combat.php's job.
     public function mercyWindow(): ?array
@@ -143,6 +162,7 @@ final class Character
             'name'               => $c['name'],
             'mercy'              => (bool)$c['mercy'],
             'mercy_window'       => $this->mercyWindow(),
+            'training'           => $this->training(),
             'vitals'             => $vitals,
             'stats'              => $base,
             'stats_effective'    => $effective,

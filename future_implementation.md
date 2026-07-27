@@ -654,7 +654,11 @@ Suggested build order (thin vertical slice, goblins only, to prove the loop):
 2. ~~Mercy window with Finish (normal kill) + random fanatics.~~ **BUILT** —
    `characters.spared_*` + `POST /api/combat/finish`; the window settles lazily,
    and walking off to another fight counts as sparing.
-3. Language skill + Interrogate (generic intel first).  ← next
+3. Language skill + Interrogate (generic intel first).
+   **3a BUILT** — `Gob\Domain\{Language,Tutor}`, `lang_<race>` skills, the
+   village scholar as a paid tutor with a rolled ceiling and diminishing
+   returns, one timed slot on `characters.training_*` settled lazily on read.
+   **3b next** — Interrogate in the mercy window, gated on knowing the tongue.
 4. Info model core (§7): `info_facts` + `player_knowledge`, `perceive()`, a handful
    of type-level goblin facts, encounter view layered by skills; Share action.
 5. Unified `npcs` + home village residents (human quest-givers); `player_quests` with

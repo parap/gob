@@ -33,6 +33,7 @@ require dirname(__DIR__) . '/src/handlers/loot.php';
 require dirname(__DIR__) . '/src/handlers/combat.php';
 require dirname(__DIR__) . '/src/handlers/world.php';
 require dirname(__DIR__) . '/src/handlers/village.php';
+require dirname(__DIR__) . '/src/handlers/training.php';
 
 $path   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -70,6 +71,7 @@ if (str_starts_with($path, '/api/')) {
             'GET /api/quests'         => handleQuests(),
             'POST /api/quests/accept' => handleQuestAccept(),
             'POST /api/quests/turn-in'=> handleQuestTurnIn(),
+            'POST /api/training/start' => handleTrainingStart(),
             default                   => json(404, ['error' => 'Not found.']),
         };
     } catch (Throwable $e) {

@@ -226,6 +226,9 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .mercy-open { color: var(--accent); font-variant-numeric: tabular-nums; }
 .mercy-closed { color: var(--muted); }
+/* Tuition in progress: same bar, study blue instead of mercy gold. */
+.training-bar:not(:empty) { border-left-color: #4e77c0; }
+.training-open { color: #8fb0e8; font-variant-numeric: tabular-nums; }
 
 /* Exploration */
 .location-list { display: flex; flex-direction: column; gap: 0.4rem; }

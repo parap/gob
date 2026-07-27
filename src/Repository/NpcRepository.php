@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Gob\Repository;
 
 use Gob\Domain\Npc;
+use Gob\Domain\Tutor;
 use PDO;
 
 // Database access for NPCs (the unified `npcs` table).
@@ -20,10 +21,18 @@ final class NpcRepository
             return;
         }
         $ins = $this->db->prepare(
-            'INSERT INTO npcs (player_id, race, profession, name, settlement_id) VALUES (?, ?, ?, ?, ?)'
+            'INSERT INTO npcs (player_id, race, profession, name, settlement_id, teaches, teach_ceiling)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
         foreach (Npc::VILLAGE_ROSTER as $n) {
-            $ins->execute([$playerId, $n['race'], $n['profession'], $n['name'], $settlementId]);
+            // Roll this tutor's ceiling once, now, so it is a fixed property of
+            // the person rather than something rerolled each lesson. A resident
+            // teaching someone else's tongue only ever has fragments of it.
+            $teaches = $n['teaches'] ?? null;
+            $ceiling = $teaches === null
+                ? 0
+                : Tutor::rollCeiling($teaches === $n['race']);
+            $ins->execute([$playerId, $n['race'], $n['profession'], $n['name'], $settlementId, $teaches, $ceiling]);
         }
     }
 

@@ -31,10 +31,15 @@ function handleNpcs(): void
     $npcs = [];
     if ($sid !== null) {
         npcRepo()->ensureVillage($pid, $sid);
-        $qrepo = questRepo();
-        $npcs = array_map(function (array $n) use ($pid, $qrepo) {
+        $qrepo  = questRepo();
+        $charId = ensureCharacter($pid, (string)$player['username']);
+        $skills = loadCharacter($charId)['skills'];
+        $npcs = array_map(function (array $n) use ($pid, $charId, $qrepo, $skills) {
             $offer = $qrepo->offerFor($pid, $n);
-            return (new Npc($n))->toArray($offer ? Quest::offerView($offer['key']) : null);
+            return (new Npc($n))->toArray(
+                $offer ? Quest::offerView($offer['key']) : null,
+                tuitionOffer($pid, $charId, $n, $skills),
+            );
         }, npcRepo()->residents($pid, $sid));
     }
 

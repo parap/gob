@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tv = e.target.closest('[data-travel]');
         if (tv) { travelTo(parseInt(tv.dataset.travel)); return; }
         const ask = e.target.closest('[data-ask]');
-        if (ask) { openQuestDialog(parseInt(ask.dataset.ask)); return; }
+        if (ask) { openNpcDialog(parseInt(ask.dataset.ask)); return; }
         const qt = e.target.closest('[data-turnin]');
         if (qt) { turnInQuest(parseInt(qt.dataset.turnin)); }
     });
@@ -45,7 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const qa = e.target.closest('[data-quest-accept]');
-        if (qa) { acceptQuest(parseInt(qa.dataset.questAccept)); closeModal(); }
+        if (qa) { acceptQuest(parseInt(qa.dataset.questAccept)); closeModal(); return; }
+        const lr = e.target.closest('[data-learn]');
+        if (lr) { startTraining(parseInt(lr.dataset.learn)); closeModal(); }
     });
 
     // Esc closes the modal.

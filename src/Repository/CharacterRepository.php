@@ -170,10 +170,65 @@ final class CharacterRepository
         )->execute([$charId]);
     }
 
-    // Load the full character (regen applied first) as a domain object.
+    // --- Training (the one tuition slot, §5) ------------------------------
+
+    public function training(int $charId): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT training_skill, training_gain, training_ends_at FROM characters WHERE id = ?'
+        );
+        $stmt->execute([$charId]);
+        $row = $stmt->fetch();
+        if (!$row || $row['training_skill'] === null || $row['training_ends_at'] === null) {
+            return null;
+        }
+        return [
+            'skill'        => (string)$row['training_skill'],
+            'gain'         => (int)$row['training_gain'],
+            'seconds_left' => max(0, strtotime($row['training_ends_at']) - time()),
+        ];
+    }
+
+    public function startTraining(int $charId, string $skill, int $gain, int $seconds): void
+    {
+        // $seconds is a trusted computed int; inlined to sidestep driver
+        // quirks binding a parameter inside INTERVAL (same as LIMIT elsewhere).
+        $this->db->prepare(
+            'UPDATE characters
+             SET training_skill = ?, training_gain = ?, training_ends_at = NOW() + INTERVAL ' . (int)$seconds . ' SECOND
+             WHERE id = ?'
+        )->execute([$skill, $gain, $charId]);
+    }
+
+    // Bank a finished lesson. Called on every character read, so a session
+    // lands whenever the player next looks — no worker, same as regen.
+    public function settleTraining(int $charId): void
+    {
+        $t = $this->training($charId);
+        if ($t === null || $t['seconds_left'] > 0) {
+            return;
+        }
+        $this->raiseSkill($charId, $t['skill'], $t['gain']);
+        $this->db->prepare(
+            'UPDATE characters SET training_skill = NULL, training_gain = 0, training_ends_at = NULL WHERE id = ?'
+        )->execute([$charId]);
+    }
+
+    // Add to a skill, creating it if the character never had it — which is how
+    // a language starts existing at all.
+    public function raiseSkill(int $charId, string $skill, int $amount): void
+    {
+        $this->db->prepare(
+            'INSERT INTO character_skills (character_id, skill, value) VALUES (?, ?, LEAST(100, ?))
+             ON DUPLICATE KEY UPDATE value = LEAST(100, value + VALUES(value))'
+        )->execute([$charId, $skill, $amount]);
+    }
+
+    // Load the full character (regen and any finished lesson applied first).
     public function load(int $charId): Character
     {
         $this->regen($charId);
+        $this->settleTraining($charId);
 
         $stmt = $this->db->prepare('SELECT * FROM characters WHERE id = ?');
         $stmt->execute([$charId]);
