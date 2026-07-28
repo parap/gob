@@ -75,6 +75,12 @@ final class Relationship
 
     // The stage ladder. Hostility gates the bottom half, Trust the top.
     public const STAGE_LABELS = ['Monster', 'Curious', 'Neutral', 'Friendly', 'Ally'];
+    // Named rungs, for gates that care about a stage rather than a raw number.
+    public const STAGE_MONSTER  = 0;
+    public const STAGE_CURIOUS  = 1;
+    public const STAGE_NEUTRAL  = 2;
+    public const STAGE_FRIENDLY = 3;
+    public const STAGE_ALLY     = 4;
     public const HOSTILE_MONSTER = 70;    // at or above: attacks on sight
     public const HOSTILE_CURIOUS = 40;    // at or above: wary, but not rabid
     private const TRUST_FRIENDLY  = 25;

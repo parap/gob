@@ -19,9 +19,9 @@ final class RelationshipRepository
 
     // The attitude an encounter actually uses: the weighted blend of every
     // scope, with unset scopes inheriting their parent.
-    public function effective(int $playerId, string $race, ?int $provinceId, ?int $siteId): Relationship
+    public function effective(int $playerId, string $race, ?int $provinceId, ?int $siteId, ?int $npcId = null): Relationship
     {
-        $rows = $this->scopeRows($playerId, $race, $provinceId, $siteId);
+        $rows = $this->scopeRows($playerId, $race, $provinceId, $siteId, $npcId);
 
         $hostility = [];
         $trust     = [];
@@ -56,12 +56,14 @@ final class RelationshipRepository
         int $hostilityDelta,
         int $trustDelta = 0,
         int $hostilityFloor = Relationship::MIN,
+        ?int $npcId = null,
     ): void {
         if (!Relationship::tracksOpinion($race)) {
             return;   // nobody there to remember it
         }
-        $rows   = $this->scopeRows($playerId, $race, $provinceId, $siteId);
+        $rows   = $this->scopeRows($playerId, $race, $provinceId, $siteId, $npcId);
         $target = [];
+        if ($npcId !== null)      $target[] = 'npc';
         if ($siteId !== null)     $target[] = 'site';
         if ($provinceId !== null) $target[] = 'province';
         $target[] = 'generic';
@@ -78,13 +80,13 @@ final class RelationshipRepository
             // it to the race default.
             $newH = max($hostilityFloor, Relationship::clamp((int)$rows[$scope]['hostility'] + $h));
             $newT = Relationship::clamp((int)$rows[$scope]['trust'] + $t);
-            $this->write($scope, $playerId, $race, $provinceId, $siteId, $newH, $newT);
+            $this->write($scope, $playerId, $race, $provinceId, $siteId, $npcId, $newH, $newT);
         }
     }
 
     // Raw per-scope values with inheritance already resolved, keyed by scope.
     // Generic is the root and always resolves (to the race's starting stance).
-    private function scopeRows(int $playerId, string $race, ?int $provinceId, ?int $siteId): array
+    private function scopeRows(int $playerId, string $race, ?int $provinceId, ?int $siteId, ?int $npcId = null): array
     {
         $out = ['generic' => [
             'hostility' => Relationship::startingHostility($race),
@@ -121,6 +123,17 @@ final class RelationshipRepository
             }
         }
 
+        $out['npc'] = $out['site'];
+        if ($npcId !== null) {
+            $row = $this->fetch(
+                'SELECT hostility, trust FROM rel_npc WHERE player_id = ? AND npc_id = ?',
+                [$playerId, $npcId]
+            );
+            if ($row) {
+                $out['npc'] = $row;
+            }
+        }
+
         return $out;
     }
 
@@ -137,10 +150,15 @@ final class RelationshipRepository
         string $race,
         ?int $provinceId,
         ?int $siteId,
+        ?int $npcId,
         int $hostility,
         int $trust,
     ): void {
         [$sql, $args] = match ($scope) {
+            'npc' => [
+                'INSERT INTO rel_npc (player_id, npc_id, hostility, trust) VALUES (?, ?, ?, ?)',
+                [$playerId, $npcId, $hostility, $trust],
+            ],
             'site' => [
                 'INSERT INTO rel_site (player_id, site_id, race, hostility, trust) VALUES (?, ?, ?, ?, ?)',
                 [$playerId, $siteId, $race, $hostility, $trust],

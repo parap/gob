@@ -50,16 +50,20 @@ Running list of loose ends and next steps. See `ideas.md` (raw brainstorm) and
       other falls back to a single "nothing worth keeping" string. Unreachable
       today (the scholar teaches only Goblin), but it gates adding any second
       language.
-- [ ] **Tutors of other races.** `Tutor::CEILING_NATIVE` (65-95) is written and
-      unused: a goblin tutor is the only way past "broken", and reaching one
-      means getting goblin Hostility down first — which closes the loop the
-      mercy slice opened. Needs promoted NPCs or a goblin dwelling to host them.
+- [x] **Promotion + goblin tutors — the loop closes.** Spare a goblin and
+      question it and it stops being a spawn: it takes a name, gets a row in
+      `npcs`, and gains the person scope (`rel_npc`, x8). One per race per
+      province. It teaches its own tongue at native ceilings (65-95), but only
+      once its people read Neutral — which sparing can reach and nothing else
+      can. Measured end to end: lang_goblin 8 -> 31, past anything the village
+      scholar could offer, unlocking speech facts gated at 25.
 - [ ] **Reciprocal mercy** (§3, designed but not built): on a *loss*, the race's
       attitude should decide the outcome — hostile robs you, neutral spares you,
       friendly patches you up. Currently every defeat is the old flat 1 HP.
-- [ ] **Person scope** `rel_npc` (×8): the blend already reserves its weight and
-      inherits from site when absent, so adding it is additive. Blocked on
-      promoting a spared individual to a persistent NPC (§10).
+- [ ] **Nothing yet moves an individual's own standing.** `rel_npc` rows are
+      written by the blend's propagation, but no deed targets a known person
+      specifically — meet Yigna again and she is just her tribe's average. Needs
+      deeds that know which individual they happened to (gift, repeat spare).
 
 ## Tuning (numbers picked to ship, all open per `future_implementation.md` §11)
 - [x] **Race taxonomy split into three axes.** `monsters.race` used to mix

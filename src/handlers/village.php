@@ -27,13 +27,14 @@ function handleNpcs(): void
     $player = requirePlayer();
     $pid    = (int)$player['id'];
 
+    $charId = ensureCharacter($pid, (string)$player['username']);
+    $skills = loadCharacter($charId)['skills'];
+
     $sid = settlementRepo()->homeId($pid);
     $npcs = [];
     if ($sid !== null) {
         npcRepo()->ensureVillage($pid, $sid);
         $qrepo  = questRepo();
-        $charId = ensureCharacter($pid, (string)$player['username']);
-        $skills = loadCharacter($charId)['skills'];
         $npcs = array_map(function (array $n) use ($pid, $charId, $qrepo, $skills) {
             $offer = $qrepo->offerFor($pid, $n);
             return (new Npc($n))->toArray(
@@ -43,8 +44,16 @@ function handleNpcs(): void
         }, npcRepo()->residents($pid, $sid));
     }
 
+    // Individuals the player knows out in the province they are standing in —
+    // goblins they spared and questioned rather than village residents.
+    $contacts = array_map(
+        fn(array $n) => (new Npc($n))->toArray(null, tuitionOffer($pid, $charId, $n, $skills)),
+        npcRepo()->contactsIn($pid, worldRepo()->currentProvinceId($charId))
+    );
+
     json(200, [
         'npcs'       => $npcs,
+        'contacts'   => $contacts,
         'reputation' => settlementRepo()->reputation($pid),
     ]);
 }

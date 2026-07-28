@@ -198,8 +198,21 @@ function handleInterrogate(): void
         addGold($player, $gold);
     }
 
+    // It survived and it mattered: you spared it and it talked to you. That is
+    // the bar for becoming a person rather than a spawn (§2), and a person can
+    // eventually teach you what no village scholar knows.
+    $promoted = null;
+    if (Relationship::tracksOpinion($race)) {
+        $npcId = npcRepo()->promote($pid, $m, $window['province_id'], $window['site_id']);
+        if ($npcId !== null) {
+            $npc      = npcRepo()->find($npcId, $pid);
+            $promoted = ['id' => $npcId, 'name' => $npc['name']];
+        }
+    }
+
     json(200, [
         'monster'  => $m['name'],
+        'promoted' => $promoted,
         'said'     => $said,
         'language' => [
             'skill'   => $skill,

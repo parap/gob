@@ -230,6 +230,7 @@ async function interrogateSpared() {
         bits.push(`They give up <b>${esc(body.intel.site)}</b>${body.intel.quest_relevant ? ' — and it bears on what you were sent to do' : ''}.`);
     }
     if (body.gold) bits.push(`You dig up a stash of ${body.gold} gold.`);
+    if (body.promoted) bits.push(`It gives a name: <b>${esc(body.promoted.name)}</b>.`);
     if (!bits.length) bits.push('They tell you nothing you can use.');
 
     $('mercy-window').innerHTML = `<span class="mercy-closed">
@@ -847,6 +848,11 @@ function renderVillage() {
     if (v) {
         $('village-rep').textContent = `· reputation ${v.reputation}`;
         $('npc-list').innerHTML = (v.npcs || []).map(npcRow).join('');
+        // People you know out here, on the tab where you'd run into them.
+        const contacts = v.contacts || [];
+        $('contact-list').innerHTML = contacts.length
+            ? '<h3>Known here</h3>' + contacts.map(npcRow).join('')
+            : '';
     }
     const quests = state.quests || [];
     $('quest-list').innerHTML = quests.length
@@ -856,7 +862,8 @@ function renderVillage() {
 
 // Ask an NPC what they have: a quest, tuition, or both.
 function openNpcDialog(npcId) {
-    const npc = (state.village && state.village.npcs || []).find(n => n.id === npcId);
+    const all = [...(state.village?.npcs || []), ...(state.village?.contacts || [])];
+    const npc = all.find(n => n.id === npcId);
     if (!npc || (!npc.offer && !npc.tuition)) return;
 
     let body = '';

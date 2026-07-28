@@ -672,6 +672,11 @@ Suggested build order (thin vertical slice, goblins only, to prove the loop):
    NPC who reacts to being told, which is narrative work rather than plumbing.
 5. Unified `npcs` + home village residents (human quest-givers); `player_quests` with
    T1 **kill/fetch/deliver** templates + Knowledge/Trust rewards, tier-gated by stage.
+   **PARTLY BUILT** — village residents and T1 kill quests exist; promotion of
+   spared individuals now populates `npcs` from combat and fills the person
+   scope (`rel_npc`), and promoted goblins act as native-ceiling tutors gated at
+   Neutral. Still missing: fetch/deliver objectives, Trust rewards, and quests
+   offered by promoted individuals rather than only tuition.
 6. Info-objective & social/deduction quests (learn a tagged fact / Share a conclusion);
    wire Interrogate + books to active quests.
 Then expand race-by-race. (Contradictory truth / Verified / Common come later.)

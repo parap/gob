@@ -553,6 +553,19 @@ CREATE TABLE IF NOT EXISTS rel_province (
     FOREIGN KEY (province_id) REFERENCES provinces(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- One known individual: a goblin you spared and questioned rather than a mook
+-- who died anonymously. The most specific scope there is (x8), which is why a
+-- single person you have dealt with well outweighs their whole tribe's rumour.
+CREATE TABLE IF NOT EXISTS rel_npc (
+    player_id INT UNSIGNED NOT NULL,
+    npc_id    INT UNSIGNED NOT NULL,
+    hostility SMALLINT UNSIGNED NOT NULL,
+    trust     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (player_id, npc_id),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+    FOREIGN KEY (npc_id)    REFERENCES npcs(id)    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- The community of a single site. Race is stored rather than implied, so a
 -- site holding more than one race keeps their opinions apart.
 CREATE TABLE IF NOT EXISTS rel_site (
