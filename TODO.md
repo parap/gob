@@ -31,11 +31,21 @@ Running list of loose ends and next steps. See `ideas.md` (raw brainstorm) and
       (resolving further as the language grows), a ~38%-at-broken chance of
       giving up a hidden site their own kin hold, and sometimes a buried stash.
       Questioning consumes the window and still counts as sparing them.
-- [ ] **Interrogation lore is flavour, not knowledge.** What a prisoner says is
-      a line from `Interrogation::LINES` and vanishes once read — there is no
-      journal to keep it in, and `quest_relevant` only *flags* that revealed
-      intel bears on an active hunt rather than advancing anything. Both want
-      the info model (step 4): facts as data, tagged to quests, Remembered.
+- [x] **Step 4 (core) — the info model.** `info_facts` + `player_knowledge`,
+      a recursive boolean requirement evaluator (`all`/`any`/leaf over skill /
+      substat / trust / hostility), `perceive()`, eleven authored goblin facts
+      across four channels, encounter views layered by what the player can
+      make out, and a Journal tab showing "n of N known" per subject.
+- [ ] **Share (§7) — deliberately not built.** The state exists in the schema
+      (`player_knowledge.state`, `shared_with`) but there is no action, because
+      Shared is defined by its consequences — tell a goblin their chief lies,
+      tell a lord where the artifact is — and inventing those is narrative
+      design, not plumbing. Build it with the first NPC who should react.
+- [ ] **Interrogation lore still isn't fact data.** `Interrogation::LINES` is a
+      separate hardcoded pool that vanishes once read, and `quest_relevant`
+      only *flags* intel rather than advancing anything. Now that facts are
+      data, prisoner speech should become facts tagged to the quest they bear
+      on — that is what turns interrogation into a quest objective.
 - [ ] **Only goblins have lines.** `Interrogation::LINES` covers one race; every
       other falls back to a single "nothing worth keeping" string. Unreachable
       today (the scholar teaches only Goblin), but it gates adding any second

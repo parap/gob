@@ -226,6 +226,17 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .mercy-open { color: var(--accent); font-variant-numeric: tabular-nums; }
 .mercy-closed { color: var(--muted); }
+/* Perceived facts: what the player can currently make out about a subject. */
+.facts { margin-top: 0.35rem; display: flex; flex-direction: column; gap: 0.15rem; }
+.fact { font-size: 0.8rem; color: var(--muted); }
+.fact-label {
+    display: inline-block; margin-right: 0.4rem;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--accent); opacity: 0.75;
+}
+.fact-group .fact-label { display: block; margin-bottom: 0.1rem; }
+#journal-list .fact { color: var(--text); padding: 0.2rem 0; }
+
 /* What a prisoner actually said, gaps and all. */
 .said { color: var(--text); }
 /* Tuition in progress: same bar, study blue instead of mercy gold. */

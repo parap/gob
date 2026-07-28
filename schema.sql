@@ -464,6 +464,65 @@ CREATE TABLE IF NOT EXISTS player_quests (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================================
+-- Information model: everything the player can know, and what it takes to
+-- perceive it (the §7 perception framework).
+-- ============================================================================
+-- A fact hangs on a subject and is gated by a boolean requirement over skills
+-- and relationship. `race` facts are shared by every member of a people;
+-- monster/site/npc facts belong to one specific thing. Facts are global —
+-- what varies per player is which of them pass.
+CREATE TABLE IF NOT EXISTS info_facts (
+    id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    subject_type     ENUM('race','monster','site','npc') NOT NULL,
+    subject_ref      VARCHAR(48) NOT NULL,   -- 'goblin', or an id as text
+    channel          VARCHAR(24) NOT NULL,   -- observation|emotion|speech|lore|tactical|confidential
+    content          TEXT NOT NULL,
+    requirement_json JSON NOT NULL,
+    KEY idx_fact_subject (subject_type, subject_ref)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- The player's knowledge journal: what they have perceived, and whether they
+-- have since told anyone. (verified / common knowledge come with the
+-- contradictory-truth layer.)
+CREATE TABLE IF NOT EXISTS player_knowledge (
+    player_id   INT UNSIGNED NOT NULL,
+    fact_id     INT UNSIGNED NOT NULL,
+    state       ENUM('remembered','shared') NOT NULL DEFAULT 'remembered',
+    learned_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    shared_with INT UNSIGNED NULL,
+    PRIMARY KEY (player_id, fact_id),
+    FOREIGN KEY (player_id) REFERENCES players(id)   ON DELETE CASCADE,
+    FOREIGN KEY (fact_id)   REFERENCES info_facts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Goblin facts. Ordered roughly by what it costs to see them: the first is
+-- free and is all a new player ever gets, and every one after it contradicts
+-- the story the village tells a little more.
+INSERT IGNORE INTO info_facts (id, subject_type, subject_ref, channel, content, requirement_json) VALUES
+    (1, 'race', 'goblin', 'observation', 'A goblin. Hostile.',
+        '{}'),
+    (2, 'race', 'goblin', 'observation', 'Small footprints among the tracks — too small to be a warrior''s.',
+        '{"substat":"perception","min":4}'),
+    (3, 'race', 'goblin', 'observation', 'Its pack holds a carved wooden toy, worn smooth from handling.',
+        '{"substat":"perception","min":7}'),
+    (4, 'race', 'goblin', 'observation', 'The blade is farm iron, beaten straight and sharpened badly. Not a soldier''s weapon.',
+        '{"substat":"perception","min":10}'),
+    (5, 'race', 'goblin', 'speech', 'The shouting repeats. The same sounds, in the same order — this is a language, not noise.',
+        '{"substat":"perception","min":6}'),
+    (6, 'race', 'goblin', 'speech', 'You catch a word you know: food.',
+        '{"skill":"lang_goblin","min":1}'),
+    (7, 'race', 'goblin', 'speech', 'It is not calling for help. It is telling someone else to run.',
+        '{"skill":"lang_goblin","min":10}'),
+    (8, 'race', 'goblin', 'speech', 'It asks whether you are the one from the eastern farms. It sounds as though that matters.',
+        '{"skill":"lang_goblin","min":25}'),
+    (9, 'race', 'goblin', 'lore', 'Goblins keep their young in the deep chambers, away from the entrance.',
+        '{"any":[{"skill":"lang_goblin","min":15},{"substat":"perception","min":12}]}'),
+    (10, 'race', 'goblin', 'confidential', 'They will not say what drove them out of the eastern fields. Not to a human.',
+        '{"all":[{"skill":"lang_goblin","min":5},{"hostility":"goblin","max":55}]}'),
+    (11, 'race', 'goblin', 'confidential', 'The warlord takes the best of what is raided. The rest of the warren eats what is left.',
+        '{"all":[{"skill":"lang_goblin","min":10},{"hostility":"goblin","max":45}]}');
+
+-- ============================================================================
 -- Relationships: how each race feels about the player, on two axes
 -- (hostility = attacks on sight, trust = opens up), tracked at nested scopes.
 -- ============================================================================

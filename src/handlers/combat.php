@@ -24,8 +24,18 @@ function relationRepo(): \Gob\Repository\RelationshipRepository
 
 function handleMonsters(): void
 {
-    requirePlayer();
-    json(200, array_map(fn($m) => $m->toArray(), monsterRepo()->all()));
+    $player = requirePlayer();
+    $pid    = (int)$player['id'];
+    $charId = ensureCharacter($pid, (string)$player['username']);
+    $prov   = worldRepo()->currentProvinceId($charId);
+
+    // Browsing the roster is not meeting anyone, so nothing is written to the
+    // journal here — you only remember what you actually encountered.
+    json(200, array_map(function ($m) use ($pid, $charId, $prov) {
+        $row = $m->toArray();
+        $row['facts'] = perceiveMonster($pid, $charId, $m->row(), $prov);
+        return $row;
+    }, monsterRepo()->all()));
 }
 
 // One blow: attack power blunted by the target's defense, then reduced by
@@ -388,5 +398,7 @@ function resolveFight(array $player, int $charId, array $m, ?int $siteId = null)
         'rewards'       => $rewards,
         'mercy'         => $mercy,
         'relation'      => relationView((int)$player['id'], $m, $provinceId, $siteId),
+        // You met it, so whatever you could perceive is now remembered.
+        'facts'         => perceiveMonster((int)$player['id'], $charId, $m, $provinceId, $siteId, true),
     ];
 }

@@ -662,11 +662,14 @@ Suggested build order (thin vertical slice, goblins only, to prove the loop):
    gated on knowing the tongue, renders speech degraded by language level (the
    `GRAAAH → words` reveal, as text), reveals a hidden site their kin hold, and
    sometimes a stash. Consumes the window and counts as a spare.
-4. Info model core (§7) ← **next**: `info_facts` + `player_knowledge`,
-   `perceive()`, a handful of type-level goblin facts, encounter view layered by
-   skills; Share action. What a prisoner says today is flavour that vanishes
-   when read — facts-as-data is what makes it stick, and what lets quests
-   consume interrogation clues instead of merely flagging them.
+4. **BUILT (except Share)** — `Gob\Domain\{Fact,Requirement}` +
+   `InfoRepository` + `perceive()`; `info_facts` / `player_knowledge`; eleven
+   type-level goblin facts over observation / speech / lore / confidential;
+   monster rows and combat results show what currently passes, grouped by
+   channel; a Journal tab counts "n of N" per subject. Requirement leaves are
+   skill / substat / trust / hostility, freely nested under all/any.
+   **Share is deferred**: the state is in the schema but the action needs an
+   NPC who reacts to being told, which is narrative work rather than plumbing.
 5. Unified `npcs` + home village residents (human quest-givers); `player_quests` with
    T1 **kill/fetch/deliver** templates + Knowledge/Trust rewards, tier-gated by stage.
 6. Info-objective & social/deduction quests (learn a tagged fact / Share a conclusion);

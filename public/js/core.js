@@ -12,6 +12,7 @@ const state = {
     village: null,   // { npcs, reputation }
     quests: [],
     relations: [],   // generic-scope standing per race
+    knowledge: [],   // the journal, grouped by subject
     mercyTimer: null,// countdown handle for an open mercy window
     ticker: null,    // setInterval handle for the resource counter
 };

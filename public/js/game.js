@@ -1,6 +1,6 @@
 // The in-game view: load settlements and keep resources ticking.
 
-const GAME_PANELS = ['settlement', 'village', 'character', 'adventure', 'exploration'];
+const GAME_PANELS = ['settlement', 'village', 'character', 'adventure', 'exploration', 'journal'];
 
 function switchGamePanel(name) {
     if (!GAME_PANELS.includes(name)) name = 'settlement';
@@ -19,7 +19,7 @@ async function enterGame() {
     $('topbar-username').textContent = state.username;
     showScreen('game');
     switchGamePanel(location.hash.slice(1) || 'settlement');
-    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadWorld(), loadVillage(), loadRelations()]);
+    await Promise.all([loadSettlements(), loadCharacter(), loadMonsters(), loadWorld(), loadVillage(), loadRelations(), loadKnowledge()]);
     startTicker();
 }
 
@@ -44,6 +44,7 @@ async function loadMonsters() {
                 <span class="monster-name">${esc(m.name)} <em>Lv${m.level}</em>${infoIcon(m.description)}</span>
                 <span class="monster-stats">${m.hp} hp · atk ${m.attack} · def ${m.defense} · ${m.reward_gold}g</span>
                 ${monsterBadges(m)}
+                ${factGroups(m.facts)}
             </div>
             <button class="btn-mini" data-fight="${m.id}">Fight</button>
         </div>`).join('');
@@ -111,6 +112,7 @@ async function fight(monsterId) {
     await loadSettlements();            // gold reward may have landed
     loadVillage();                      // a kill may have advanced a quest
     loadRelations();                    // the deed moved how the race sees you
+    loadKnowledge();                    // meeting it may have taught you something
     renderCombat(body);
 }
 
@@ -279,7 +281,7 @@ function renderCombat(r, targetId = 'combat-log') {
         return `<div class="combat-line ${e.actor}">R${e.round}: ${who} hit ${tgt} for ${e.damage} (${tgt} ${e.target_hp} hp)</div>`;
     }).join('');
 
-    $(targetId).innerHTML = head + mercyLine(r) + lines;
+    $(targetId).innerHTML = head + mercyLine(r) + factGroups(r.facts) + lines;
     renderMercyWindow(r.monster.name);
 }
 
@@ -316,6 +318,41 @@ async function startTraining(npcId) {
     setCharacter(body.character);
     renderCharacter();
     await Promise.all([loadSettlements(), loadVillage()]);   // fee left the coffers
+}
+
+// ── The journal: what you know, and how much of it there is ──────────────────
+
+// Facts grouped by channel, as they read on an encounter.
+function factGroups(groups) {
+    if (!groups || !groups.length) return '';
+    return `<div class="facts">` + groups.map(g =>
+        `<div class="fact-group"><span class="fact-label">${esc(g.label)}</span>` +
+        g.facts.map(f => `<div class="fact">${esc(f)}</div>`).join('') +
+        `</div>`).join('') + `</div>`;
+}
+
+async function loadKnowledge() {
+    const { status, body } = await req('GET', '/knowledge');
+    if (status !== 200) return;
+    state.knowledge = body.subjects || [];
+    renderKnowledge();
+}
+
+function renderKnowledge() {
+    const el = $('journal-list');
+    if (!el) return;
+    const subjects = state.knowledge || [];
+    if (!subjects.length) {
+        el.innerHTML = '<p class="muted">Nothing yet. You have not been paying attention.</p>';
+        return;
+    }
+    // The count tells the player there is more to see without hinting what, or
+    // what would reveal it.
+    el.innerHTML = subjects.map(s => `
+        <h3>${esc(s.subject)} <span class="muted">— ${s.known} of ${s.total}</span></h3>
+        <div class="facts">${s.facts.map(f =>
+            `<div class="fact"><span class="fact-label">${esc(f.label)}</span> ${esc(f.content)}</div>`
+        ).join('')}</div>`).join('');
 }
 
 // ── Standing: how each race currently sees you ───────────────────────────────
@@ -704,7 +741,7 @@ async function delveSite(siteId) {
     setFightStatus('delve-status', name, body.combat.outcome);
     setCharacter(body.character);
     renderCharacter();
-    await Promise.all([loadWorld(), loadSettlements(), loadVillage(), loadRelations()]);
+    await Promise.all([loadWorld(), loadSettlements(), loadVillage(), loadRelations(), loadKnowledge()]);
 
     // Full battle log + loot, right here on the Exploration tab.
     renderCombat(body.combat, 'explore-log');

@@ -34,6 +34,7 @@ require dirname(__DIR__) . '/src/handlers/combat.php';
 require dirname(__DIR__) . '/src/handlers/world.php';
 require dirname(__DIR__) . '/src/handlers/village.php';
 require dirname(__DIR__) . '/src/handlers/training.php';
+require dirname(__DIR__) . '/src/handlers/perception.php';
 
 $path   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -54,6 +55,7 @@ if (str_starts_with($path, '/api/')) {
             'GET /api/character/me'   => handleMyCharacter(),
             'POST /api/character/mercy' => handleMercyStance(),
             'GET /api/relations'      => handleRelations(),
+            'GET /api/knowledge'      => handleKnowledge(),
             'POST /api/items/equip'   => handleEquip(),
             'POST /api/items/unequip' => handleUnequip(),
             'POST /api/items/use'     => handleUseItem(),
