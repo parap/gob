@@ -39,7 +39,7 @@ function handleNpcs(): void
             $offer = $qrepo->offerFor($pid, $n);
             return (new Npc($n))->toArray(
                 $offer ? Quest::offerView($offer['key']) : null,
-                tuitionOffer($pid, $charId, $n, $skills),
+                tuitionView(tuitionOffer($pid, $charId, $n, $skills)),
             );
         }, npcRepo()->residents($pid, $sid));
     }
@@ -47,7 +47,7 @@ function handleNpcs(): void
     // Individuals the player knows out in the province they are standing in —
     // goblins they spared and questioned rather than village residents.
     $contacts = array_map(
-        fn(array $n) => (new Npc($n))->toArray(null, tuitionOffer($pid, $charId, $n, $skills)),
+        fn(array $n) => (new Npc($n))->toArray(null, tuitionView(tuitionOffer($pid, $charId, $n, $skills))),
         npcRepo()->contactsIn($pid, worldRepo()->currentProvinceId($charId))
     );
 

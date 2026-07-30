@@ -70,14 +70,40 @@ final class Character
         if (empty($c['training_skill']) || empty($c['training_ends_at'])) {
             return null;
         }
+        $skill = (string)$c['training_skill'];
+        $lang  = Language::isLanguage($skill);
+        $gain  = (int)$c['training_gain'];
+
+        // Where the lesson leaves you, in words. The point of a language is
+        // what you will be able to make out, not the integer behind it, so the
+        // size of the gain never crosses the wire (§1).
         return [
-            'skill'        => (string)$c['training_skill'],
-            'label'        => Language::isLanguage((string)$c['training_skill'])
-                ? Language::label((string)$c['training_skill'])
-                : (string)$c['training_skill'],
-            'gain'         => (int)$c['training_gain'],
+            'skill'        => $skill,
+            'label'        => $lang ? Language::label($skill) : $skill,
+            'toward'       => $lang
+                ? Language::fluency((int)($this->skills[$skill] ?? 0) + $gain)
+                : null,
             'seconds_left' => max(0, strtotime($c['training_ends_at']) - time()),
         ];
+    }
+
+    // The tongues the character has any of, described in words. A weapon skill
+    // is a number you can compare; a language is not — you either make out what
+    // was said or you don't, so that is all the sheet reports (§1).
+    public function languages(): array
+    {
+        $out = [];
+        foreach ($this->skills as $skill => $value) {
+            if (!Language::isLanguage((string)$skill) || (int)$value <= 0) {
+                continue;
+            }
+            $out[] = [
+                'skill'   => (string)$skill,
+                'label'   => Language::label((string)$skill),
+                'fluency' => Language::fluency((int)$value),
+            ];
+        }
+        return $out;
     }
 
     // The open mercy window, or null if there is none / it has run out. Only
@@ -169,6 +195,7 @@ final class Character
             'substats'           => $subBase,
             'substats_effective' => $subEff,
             'skills'             => $this->skills,
+            'languages'          => $this->languages(),
             'equipment'          => $equipment,
             'inventory'          => $inventory,
         ];

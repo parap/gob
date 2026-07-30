@@ -339,6 +339,8 @@ function handleTravel(): void
     $charId = ensureCharacter((int)$player['id'], $player['username']);
     $pid    = (int)(body()['province_id'] ?? 0);
 
+    // Travelling mid-lesson is refused by requireNotStudying() in the router,
+    // along with every other action, so there is nothing to check here.
     if (!worldRepo()->findProvince($pid, (int)$player['id'])) {
         json(404, ['error' => 'Province not found.']);
     }

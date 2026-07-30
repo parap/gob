@@ -26,14 +26,15 @@ function handleMonsters(): void
 {
     $player = requirePlayer();
     $pid    = (int)$player['id'];
-    $charId = ensureCharacter($pid, (string)$player['username']);
-    $prov   = worldRepo()->currentProvinceId($charId);
+    ensureCharacter($pid, (string)$player['username']);
 
-    // Browsing the roster is not meeting anyone, so nothing is written to the
-    // journal here — you only remember what you actually encountered.
-    json(200, array_map(function ($m) use ($pid, $charId, $prov) {
+    // Browsing the roster is not meeting anyone: it shows what the player
+    // remembers of each creature and nothing else. A monster they have never
+    // fought lists no facts at all, however sharp their eye — reading one is
+    // something that happens in front of it, not in a menu.
+    json(200, array_map(function ($m) use ($pid) {
         $row = $m->toArray();
-        $row['facts'] = perceiveMonster($pid, $charId, $m->row(), $prov);
+        $row['facts'] = recallMonster($pid, $m->row());
         return $row;
     }, monsterRepo()->all()));
 }
@@ -411,7 +412,8 @@ function resolveFight(array $player, int $charId, array $m, ?int $siteId = null)
         'rewards'       => $rewards,
         'mercy'         => $mercy,
         'relation'      => relationView((int)$player['id'], $m, $provinceId, $siteId),
-        // You met it, so whatever you could perceive is now remembered.
-        'facts'         => perceiveMonster((int)$player['id'], $charId, $m, $provinceId, $siteId, true),
+        // You met it: what you already knew, plus the few new things this
+        // meeting was enough to take in. Both are now in the journal.
+        'facts'         => perceiveMonster((int)$player['id'], $charId, $m, $provinceId, $siteId),
     ];
 }

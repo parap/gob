@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (us) { useItem(parseInt(us.dataset.use)); return; }
         const sl = e.target.closest('[data-sell]');
         if (sl) { sellItem(parseInt(sl.dataset.sell)); return; }
+        if (e.target.id === 'btn-give-up') { cancelTraining(); return; }
         if (e.target.id === 'btn-loot') { searchLoot(); return; }
         if (e.target.id === 'btn-mercy') { toggleMercy(); return; }
         if (e.target.id === 'btn-finish') { finishSpared(); return; }

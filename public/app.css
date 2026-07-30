@@ -113,6 +113,9 @@ input:focus { outline: none; border-color: var(--accent); }
 }
 .game-tab:hover { color: var(--text); }
 .game-tab.active { color: var(--text); border-color: var(--accent); background: var(--bg); }
+/* Shut for the duration of a lesson: visibly out of reach, not merely inert. */
+.game-tab.locked { opacity: 0.35; cursor: not-allowed; }
+.game-tab.locked:hover { color: var(--muted); }
 .game-panel { display: none; }
 .game-panel.active { display: block; }
 #screen-game .card { max-width: none; }

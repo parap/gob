@@ -12,18 +12,28 @@ final class NpcRepository
 {
     public function __construct(private PDO $db) {}
 
-    // Populate a home village with its resident NPCs, once. Idempotent.
+    // Populate a home village with its resident NPCs. Idempotent, and per
+    // resident rather than all-or-nothing: a village seeded before the roster
+    // grew a member — or before residents could teach anything at all — gets
+    // the missing pieces on the next visit instead of staying frozen as it was
+    // the day it was created.
     public function ensureVillage(int $playerId, int $settlementId): void
     {
-        $chk = $this->db->prepare('SELECT COUNT(*) FROM npcs WHERE player_id = ? AND settlement_id = ?');
-        $chk->execute([$playerId, $settlementId]);
-        if ((int)$chk->fetchColumn() > 0) {
-            return;
+        $have = $this->db->prepare(
+            'SELECT id, name, teaches FROM npcs WHERE player_id = ? AND settlement_id = ?'
+        );
+        $have->execute([$playerId, $settlementId]);
+        $existing = [];
+        foreach ($have->fetchAll() as $row) {
+            $existing[(string)$row['name']] = $row;
         }
+
         $ins = $this->db->prepare(
             'INSERT INTO npcs (player_id, race, profession, name, settlement_id, teaches, teach_ceiling)
              VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
+        $fix = $this->db->prepare('UPDATE npcs SET teaches = ?, teach_ceiling = ? WHERE id = ?');
+
         foreach (Npc::VILLAGE_ROSTER as $n) {
             // Roll this tutor's ceiling once, now, so it is a fixed property of
             // the person rather than something rerolled each lesson. A resident
@@ -32,7 +42,17 @@ final class NpcRepository
             $ceiling = $teaches === null
                 ? 0
                 : Tutor::rollCeiling($teaches === $n['race']);
-            $ins->execute([$playerId, $n['race'], $n['profession'], $n['name'], $settlementId, $teaches, $ceiling]);
+
+            $row = $existing[$n['name']] ?? null;
+            if ($row === null) {
+                $ins->execute([$playerId, $n['race'], $n['profession'], $n['name'], $settlementId, $teaches, $ceiling]);
+                continue;
+            }
+            // They were always the village scholar; they only now have a
+            // subject. Backfill it and leave everything else about them alone.
+            if ($teaches !== null && ($row['teaches'] ?? null) === null) {
+                $fix->execute([$teaches, $ceiling, (int)$row['id']]);
+            }
         }
     }
 

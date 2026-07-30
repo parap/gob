@@ -29,6 +29,12 @@ final class Fact
 
     public const SUBJECT_TYPES = ['race', 'monster', 'site', 'npc'];
 
+    // Not a channel a fact can be authored in: the single heading a browsing
+    // list gets, where every remembered line is lumped together because the
+    // player is recalling the creature rather than standing in front of it.
+    public const RECALL_CHANNEL = 'memory';
+    public const RECALL_LABEL   = 'What you remember';
+
     public function __construct(private array $row) {}
 
     public function id(): int { return (int)$this->row['id']; }

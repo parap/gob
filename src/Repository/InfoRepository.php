@@ -37,6 +37,31 @@ final class InfoRepository
         }
     }
 
+    // Which facts this player already has, as an id => true set. Used to work
+    // out what is new about an encounter.
+    public function knownIds(int $playerId): array
+    {
+        $stmt = $this->db->prepare('SELECT fact_id FROM player_knowledge WHERE player_id = ?');
+        $stmt->execute([$playerId]);
+        return array_fill_keys(array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN)), true);
+    }
+
+    // What the player remembers about one subject: the facts they have already
+    // perceived, whether or not they would still pass the requirement today.
+    // Once you have noticed something you do not un-notice it.
+    public function rememberedFor(int $playerId, string $subjectType, string $subjectRef): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT f.id, f.channel, f.content
+             FROM player_knowledge k
+             JOIN info_facts f ON f.id = k.fact_id
+             WHERE k.player_id = ? AND f.subject_type = ? AND f.subject_ref = ?
+             ORDER BY f.id'
+        );
+        $stmt->execute([$playerId, $subjectType, $subjectRef]);
+        return $stmt->fetchAll();
+    }
+
     // The journal, newest first, with each fact's subject for grouping.
     public function journal(int $playerId): array
     {

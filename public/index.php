@@ -47,6 +47,10 @@ if (PHP_SAPI === 'cli-server' && $path !== '/' && is_file(__DIR__ . $path)) {
 
 if (str_starts_with($path, '/api/')) {
     try {
+        // A lesson locks the game down to looking at your character: every
+        // action route is refused until it finishes or is given up (§5).
+        requireNotStudying($method, "$method $path");
+
         match ("$method $path") {
             'POST /api/auth/register' => handleRegister(),
             'POST /api/auth/login'    => handleLogin(),
@@ -74,7 +78,8 @@ if (str_starts_with($path, '/api/')) {
             'GET /api/quests'         => handleQuests(),
             'POST /api/quests/accept' => handleQuestAccept(),
             'POST /api/quests/turn-in'=> handleQuestTurnIn(),
-            'POST /api/training/start' => handleTrainingStart(),
+            'POST /api/training/start'  => handleTrainingStart(),
+            'POST /api/training/cancel' => handleTrainingCancel(),
             default                   => json(404, ['error' => 'Not found.']),
         };
     } catch (Throwable $e) {

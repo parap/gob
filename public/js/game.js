@@ -4,6 +4,9 @@ const GAME_PANELS = ['settlement', 'village', 'character', 'adventure', 'explora
 
 function switchGamePanel(name) {
     if (!GAME_PANELS.includes(name)) name = 'settlement';
+    // Mid-lesson the only thing to look at is your character — including when
+    // the panel is asked for by URL hash rather than by clicking a tab.
+    if (name !== 'character' && isStudying()) name = 'character';
     document.querySelectorAll('.game-tab').forEach(t =>
         t.classList.toggle('active', t.dataset.panel === name));
     document.querySelectorAll('.game-panel').forEach(p =>
@@ -299,18 +302,70 @@ function renderTraining() {
     const box = $('training-slot');
     if (!box) return;
     const t = state.character?.training;
-    if (!t || !state.trainingDeadline) { box.innerHTML = ''; return; }
+    if (!t || !state.trainingDeadline) {
+        // Nothing running. Leave any just-shown outcome ("You leave the lesson
+        // early…") on screen instead of blanking it a tick later.
+        if (!state.trainingNotice) box.innerHTML = '';
+        applyStudyLock();
+        return;
+    }
 
     const left = Math.ceil((state.trainingDeadline - Date.now()) / 1000);
     if (left <= 0) {
         box.innerHTML = `<span class="mercy-closed">You finish studying ${esc(t.label)}.</span>`;
         if (!state.trainingSettling) {   // one fetch, not one per tick
             state.trainingSettling = true;
+            state.trainingNotice = true; // survives the blank once it settles
             loadCharacter().then(loadVillage);
+            renderWorld();               // the world is yours again
         }
         return;
     }
-    box.innerHTML = `<span class="training-open">Studying ${esc(t.label)} — ${clock(left)} left (+${t.gain})</span>`;
+    // No number: what a lesson buys is described the way the player will
+    // experience it, and the integer behind it is never shown. Giving up is
+    // always on offer — the lock is a cost, not a trap.
+    state.trainingNotice = false;
+    const toward = t.toward ? ` · toward <b>${esc(t.toward)}</b>` : '';
+    box.innerHTML = `<span class="training-open">Studying ${esc(t.label)} — ${clock(left)} left${toward}</span>
+        <button class="btn-mini" id="btn-give-up">Give up</button>`;
+    applyStudyLock();
+}
+
+// Whether a lesson is running right now. While one is, the game is locked down
+// to the character sheet: nothing else can be looked at and no action is
+// accepted (the server refuses them too — this only keeps the UI honest).
+function isStudying() {
+    return !!(state.character?.training && state.trainingDeadline
+              && state.trainingDeadline > Date.now());
+}
+
+// Grey out every tab but Character for the duration, and pull the player onto it
+// if they were somewhere else when the lesson began.
+function applyStudyLock() {
+    const studying = isStudying();
+    document.querySelectorAll('.game-tab').forEach(tab => {
+        const locked = studying && tab.dataset.panel !== 'character';
+        tab.disabled = locked;
+        tab.classList.toggle('locked', locked);
+        tab.title = locked ? 'You are in the middle of a lesson.' : '';
+    });
+    if (studying && !document.querySelector('.game-panel.active[data-panel="character"]')) {
+        switchGamePanel('character');
+    }
+}
+
+async function cancelTraining() {
+    const { status, body } = await req('POST', '/training/cancel');
+    if (status !== 200) return;
+
+    state.trainingDeadline = null;
+    state.trainingNotice   = true;    // the ticker leaves the line below alone
+    setCharacter(body.character);
+    renderCharacter();
+    applyStudyLock();                 // the game opens back up
+    $('training-slot').innerHTML = `<span class="mercy-closed">You leave the lesson early.
+        ${body.learned ? esc(body.sense) : 'Nothing of it stayed with you.'}</span>`;
+    await Promise.all([loadWorld(), loadVillage()]);
 }
 
 async function startTraining(npcId) {
@@ -318,6 +373,7 @@ async function startTraining(npcId) {
     if (status !== 201 && status !== 200) return;
     setCharacter(body.character);
     renderCharacter();
+    renderWorld();                                          // you are staying put now
     await Promise.all([loadSettlements(), loadVillage()]);   // fee left the coffers
 }
 
@@ -407,6 +463,9 @@ function setCharacter(c) {
     state.mercyDeadline = c.mercy_window ? Date.now() + c.mercy_window.seconds_left * 1000 : null;
     state.trainingDeadline = c.training ? Date.now() + c.training.seconds_left * 1000 : null;
     if (c.training) state.trainingSettling = false;
+    // Every character read re-decides whether the game is locked, so a reload
+    // mid-lesson lands on the character sheet with the other tabs shut.
+    applyStudyLock();
 }
 
 // Project current HP forward from the regen rate since the last fetch.
@@ -465,9 +524,15 @@ function renderCharacter() {
         .map(k => statRow(k[0].toUpperCase() + k.slice(1), c.substats[k], c.substats_effective[k]))
         .join('');
 
+    // Weapon skills are numbers; tongues are words. Languages are pulled out of
+    // the numeric list and reported as how well you speak them.
     $('char-skills').innerHTML = Object.entries(c.skills)
+        .filter(([k]) => !k.startsWith('lang_'))
         .map(([k, val]) => `<div class="skill"><span>${k}</span><b>${val}</b></div>`)
-        .join('');
+        .join('')
+        + (c.languages || [])
+            .map(l => `<div class="skill"><span>${esc(l.label)}</span><b>${esc(l.fluency)}</b></div>`)
+            .join('');
 
     // Equipped items: description in the tooltip; click a filled slot to unequip.
     $('char-equipment').innerHTML = Object.entries(c.equipment)
@@ -639,7 +704,8 @@ function renderWorld() {
         ? rest.map(siteRow).join('')
         : '<p class="muted">Nothing uncovered here yet — keep exploring.</p>';
 
-    // The province map: current + travel to others.
+    // The province map: current + travel to others. Nothing special for a
+    // lesson in progress — this whole panel is shut while one runs.
     $('province-list').innerHTML = (w.provinces || []).map(p => {
         const tag = p.is_current
             ? `<span class="loc-cleared">You are here</span>`
@@ -717,8 +783,11 @@ async function exploreWorld() {
 }
 
 async function travelTo(provinceId) {
-    const { status } = await req('POST', '/world/travel', { province_id: provinceId });
-    if (status === 200) { $('explore-result').textContent = ''; await loadWorld(); }
+    const { status, body } = await req('POST', '/world/travel', { province_id: provinceId });
+    if (status === 200) { $('explore-result').textContent = ''; await loadWorld(); return; }
+    // Refused — a lesson in progress is the usual reason. Say it where the
+    // player is looking rather than silently doing nothing.
+    $('explore-result').textContent = body?.error || '';
 }
 
 async function delveSite(siteId) {
@@ -882,9 +951,14 @@ function openNpcDialog(npcId) {
     const t = npc.tuition;
     if (t) {
         body += `<div class="dialog-text"><p>They can teach you the ${esc(t.label.toLowerCase())}.
-                 You speak it <b>${esc(t.fluency)}</b>.</p></div>`;
+                 ${esc(t.sense)}</p></div>`;
+        // What the lesson leaves you with is stated as comprehension, never as
+        // points: the player is buying what they will be able to make out.
+        const outcome = t.improves
+            ? `Afterwards, ${esc(t.after_sense)}.`
+            : `It would sharpen what you have without changing that.`;
         body += t.can
-            ? `<p class="muted">Lesson: <b>+${t.gain}</b> for <b>${t.price} gold</b>, ${clock(t.seconds)} of study.</p>`
+            ? `<p class="muted">Lesson: <b>${t.price} gold</b>, ${clock(t.seconds)} of study. ${outcome}</p>`
             : `<p class="muted">${esc(t.reason)}</p>`;
         if (t.can) actions += `<button class="btn" data-learn="${npc.id}">Pay ${t.price}g</button>`;
     }

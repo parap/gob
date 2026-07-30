@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Gob\Repository;
 
 use Gob\Domain\Character;
+use Gob\Domain\Tutor;
 use Gob\Repositories;
 use PDO;
 
@@ -212,6 +213,31 @@ final class CharacterRepository
         $this->db->prepare(
             'UPDATE characters SET training_skill = NULL, training_gain = 0, training_ends_at = NULL WHERE id = ?'
         )->execute([$charId]);
+    }
+
+    // Walk out of a lesson early. You keep the part you actually sat through —
+    // a lesson is bought by the point and studied at a fixed rate, so what an
+    // interrupted one leaves you with is just the time you gave it. The fee is
+    // not returned: the tutor taught, you left. Returns what was banked, or
+    // null if there was no lesson to give up.
+    public function cancelTraining(int $charId): ?array
+    {
+        $t = $this->training($charId);
+        if ($t === null) {
+            return null;
+        }
+        $total   = $t['gain'] * Tutor::SECONDS_PER_POINT;
+        $studied = max(0, $total - $t['seconds_left']);
+        $learned = min($t['gain'], intdiv($studied, Tutor::SECONDS_PER_POINT));
+
+        if ($learned > 0) {
+            $this->raiseSkill($charId, $t['skill'], $learned);
+        }
+        $this->db->prepare(
+            'UPDATE characters SET training_skill = NULL, training_gain = 0, training_ends_at = NULL WHERE id = ?'
+        )->execute([$charId]);
+
+        return ['skill' => $t['skill'], 'learned' => $learned];
     }
 
     // Add to a skill, creating it if the character never had it — which is how

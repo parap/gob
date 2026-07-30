@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use Gob\Domain\Fact;
+use Gob\Domain\Perception;
 use Gob\Repository\InfoRepository;
 
 // The perception layer (future_implementation.md §7).
@@ -12,6 +13,15 @@ use Gob\Repository\InfoRepository;
 // monster reading differently on the fourth encounter, a cave turning out to
 // be a settlement, a chief visibly lying — is authored as data against that
 // rule rather than coded case by case.
+//
+// Two ways to look at a subject, and they are not the same thing:
+//
+//   recall*()   — what you remember, from meetings that actually happened.
+//                 This is all a list can ever show you.
+//   perceive*() — an encounter: what you already knew, plus the few new things
+//                 this meeting was enough to take in. Writes to the journal.
+//
+// Browsing a roster is not meeting anyone, so it never produces new facts.
 
 function infoRepo(): InfoRepository
 {
@@ -37,65 +47,110 @@ function perceptionContext(int $playerId, int $charId, ?string $race, ?int $prov
     return $ctx;
 }
 
-// Facts about a subject that the player can currently perceive, grouped by
-// channel. $remember writes newly-seen ones into the journal — true when the
-// player actually met the subject, false for a list they are merely browsing.
-function perceive(
-    int $playerId,
-    int $charId,
-    string $subjectType,
-    string $subjectRef,
-    ?string $race = null,
-    ?int $provinceId = null,
-    ?int $siteId = null,
-    bool $remember = false,
-    ?array $context = null,
-): array {
-    $ctx = $context ?? perceptionContext($playerId, $charId, $race, $provinceId, $siteId);
+// The subject levels a monster is read at: the facts shared by its whole people,
+// then the ones particular to this creature. Authored cheapest-first within each.
+function monsterSubjects(array $m): array
+{
+    return [
+        ['race', (string)($m['race'] ?? 'unknown')],
+        ['monster', (string)$m['id']],
+    ];
+}
 
+// Facts about a subject the player could perceive right now, flat and in
+// authored order. Nothing is written and nothing is grouped — this is only the
+// raw "what is available to notice" list.
+function passingFacts(string $subjectType, string $subjectRef, array $ctx): array
+{
     $passing = [];
     foreach (infoRepo()->factsFor($subjectType, $subjectRef) as $fact) {
         if ($fact->passes($ctx)) {
             $passing[] = $fact->toArray();
         }
     }
-
-    if ($remember && $passing) {
-        infoRepo()->remember($playerId, array_column($passing, 'id'));
-    }
-
-    return Fact::group($passing);
+    return $passing;
 }
 
-// What the player perceives of a monster: its own instance facts plus the
-// facts shared by its whole people.
+// Everything the player remembers about these subjects, flat, in canonical
+// channel order. The one thing a list is allowed to show.
+function recalledFacts(int $playerId, array $subjects): array
+{
+    $flat = [];
+    foreach ($subjects as [$type, $ref]) {
+        foreach (infoRepo()->rememberedFor($playerId, $type, $ref) as $row) {
+            $flat[] = ['channel' => (string)$row['channel'], 'content' => (string)$row['content']];
+        }
+    }
+    $ordered = [];
+    foreach (Fact::group($flat) as $group) {
+        foreach ($group['facts'] as $text) {
+            $ordered[] = ['channel' => $group['channel'], 'content' => $text];
+        }
+    }
+    return $ordered;
+}
+
+// An encounter. You come away with what you already remembered plus the first
+// few things you had not noticed before — how many depends on perception, so a
+// sharp-eyed character reads a creature in two meetings and a dull one takes
+// five. Facts are authored cheapest-first, so this paces the discovery rather
+// than gating any part of it.
+function perceiveSubjects(int $playerId, array $subjects, array $ctx): array
+{
+    $passing = [];
+    foreach ($subjects as [$type, $ref]) {
+        foreach (passingFacts($type, $ref, $ctx) as $fact) {
+            $passing[] = $fact;
+        }
+    }
+
+    $known = infoRepo()->knownIds($playerId);
+    $limit = Perception::noticeLimit((int)($ctx['substat']['perception'] ?? 0));
+
+    $fresh = [];
+    foreach ($passing as $fact) {
+        if (isset($known[(int)$fact['id']])) {
+            continue;
+        }
+        $fresh[] = $fact;
+        if (count($fresh) >= $limit) {
+            break;
+        }
+    }
+    infoRepo()->remember($playerId, array_column($fresh, 'id'));
+
+    // Read back what is remembered now, so the encounter view is exactly the
+    // journal plus whatever this meeting just added — never more.
+    return Fact::group(recalledFacts($playerId, $subjects));
+}
+
+// What the player remembers of a monster, for a list they are merely browsing.
+// One heading: this is memory, not a briefing.
+function recallMonster(int $playerId, array $m): array
+{
+    $lines = array_column(recalledFacts($playerId, monsterSubjects($m)), 'content');
+    if (!$lines) {
+        return [];
+    }
+    return [[
+        'channel' => Fact::RECALL_CHANNEL,
+        'label'   => Fact::RECALL_LABEL,
+        'facts'   => $lines,
+    ]];
+}
+
+// What the player perceives of a monster they are actually facing.
 function perceiveMonster(
     int $playerId,
     int $charId,
     array $m,
     ?int $provinceId = null,
     ?int $siteId = null,
-    bool $remember = false,
-    ?array $context = null,
 ): array {
     $race = (string)($m['race'] ?? 'unknown');
-    $ctx  = $context ?? perceptionContext($playerId, $charId, $race, $provinceId, $siteId);
+    $ctx  = perceptionContext($playerId, $charId, $race, $provinceId, $siteId);
 
-    $facts = [];
-    foreach ([['race', $race], ['monster', (string)$m['id']]] as [$type, $ref]) {
-        foreach (perceive($playerId, $charId, $type, $ref, $race, $provinceId, $siteId, $remember, $ctx) as $group) {
-            $facts[] = $group;
-        }
-    }
-
-    // Merge the two levels channel by channel, keeping the canonical order.
-    $flat = [];
-    foreach ($facts as $g) {
-        foreach ($g['facts'] as $text) {
-            $flat[] = ['channel' => $g['channel'], 'content' => $text];
-        }
-    }
-    return Fact::group($flat);
+    return perceiveSubjects($playerId, monsterSubjects($m), $ctx);
 }
 
 // GET /api/knowledge — the journal: everything perceived so far, grouped by
