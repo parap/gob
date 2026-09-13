@@ -40,6 +40,9 @@
             <input id="reg-username" placeholder="Username" autocomplete="username">
             <input id="reg-email" type="email" placeholder="Email" autocomplete="email">
             <input id="reg-password" type="password" placeholder="Password (min 6)" autocomplete="new-password">
+            <!-- Always shown. Whether a code is required is the server's business, and
+                 asking it first would tell a stranger whether the game is open. -->
+            <input id="reg-invite" placeholder="Invite code" autocomplete="off">
             <button id="btn-register" class="btn">Create account</button>
         </div>
 

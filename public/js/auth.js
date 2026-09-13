@@ -19,6 +19,7 @@ async function register() {
         username: $('reg-username').value,
         email:    $('reg-email').value,
         password: $('reg-password').value,
+        invite:   $('reg-invite').value,
     });
     if (status === 201 && body.token) onLoggedIn(body);
     else $('auth-error').textContent = (body && body.error) || 'Registration failed.';
