@@ -64,10 +64,11 @@ Running list of loose ends and next steps. See `ideas.md` (raw brainstorm) and
       Ally bind your wounds and leave you at 35%. A 25% no-quarter roll mirrors
       the fanatic roll and overrides any goodwill. `Relationship::lossOutcome()`
       and `lossToll()` hold the decision and the arithmetic, both pure.
-- [ ] **Nothing yet moves an individual's own standing.** `rel_npc` rows are
-      written by the blend's propagation, but no deed targets a known person
-      specifically — meet Yigna again and she is just her tribe's average. Needs
-      deeds that know which individual they happened to (gift, repeat spare).
+- [ ] **Nothing yet moves an individual's own standing.** `applyDeed()` takes an
+      `$npcId` and `effective()` reads the person scope — the tutor gate already
+      asks for it — but no call site passes one, so `rel_npc` stays empty and
+      meeting Yigna again reads as her tribe's average. Needs deeds that know
+      which individual they happened to (gift, repeat spare).
 
 ## Tuning (numbers picked to ship, all open per `future_implementation.md` §11)
 - [x] **Race taxonomy split into three axes.** `monsters.race` used to mix

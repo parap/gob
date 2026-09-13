@@ -15,9 +15,10 @@ namespace Gob\Domain;
 // the scope rows live in RelationshipRepository.
 final class Relationship
 {
-    // Blend weights per scope, broadest last. 'npc' (the person scope) has no
-    // table yet — it needs persistent NPC identity — but it keeps its weight
-    // here so adding it later changes no arithmetic.
+    // Blend weights per scope, broadest last. Each step in doubles the last, so
+    // what happened between the player and one person outweighs everything said
+    // about their whole people — direct experience beating hearsay is the
+    // arithmetic the model exists for.
     public const WEIGHTS = ['generic' => 1, 'province' => 2, 'site' => 4, 'npc' => 8];
 
     // Scopes ordered broad → specific: the order inheritance walks.

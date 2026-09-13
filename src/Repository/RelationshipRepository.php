@@ -6,13 +6,16 @@ namespace Gob\Repository;
 use Gob\Domain\Relationship;
 use PDO;
 
-// Persistence for the two-axis relationship model (§2). One table per scope,
-// each holding both axes; a scope only gets a row once the player has actually
-// done something at that scope — until then it inherits the broader one.
+// Persistence for the two-axis relationship model (§2). One table per scope —
+// rel_generic, rel_province, rel_site, rel_npc — each holding both axes; a
+// scope only gets a row once the player has actually done something at that
+// scope, and until then it reads as the broader one.
 //
-// The person scope (rel_npc) is deliberately absent: it needs persistent NPC
-// identity (promotion of a spared individual), which is a later slice. Its
-// blend weight is already reserved in Relationship::WEIGHTS.
+// The person scope is read wherever an individual is involved: the tutor gate
+// asks effective() for one, so a promoted survivor's own standing dominates
+// the blend. Writing to it needs a deed aimed at a particular person, which
+// applyDeed takes as $npcId; the deeds combat records are aimed at a place and
+// a people, so an individual reads as their kin until one is.
 final class RelationshipRepository
 {
     public function __construct(private PDO $db) {}
