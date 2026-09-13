@@ -34,6 +34,7 @@ if (is_file($autoload)) {
 }
 
 use Gob\Db;
+use Gob\Domain\DumpGuard;
 use Gob\Migrator;
 
 $dir = dirname(__DIR__) . '/db/migrations';
@@ -55,6 +56,23 @@ if (in_array('--status', $argv, true)) {
         printf("%-8s %s\n", isset($pending[$version]) ? 'PENDING' : 'applied', $version);
     }
     exit(0);
+}
+
+// The dump is the only thing between a migration and every account on the server, so a
+// migration does not start without one taken for it. --status is exempt above: it reads the
+// ledger and changes nothing.
+$dumpDir  = getenv('BACKUP_DIR') ?: dirname(__DIR__) . '/backups';
+$database = (string)$pdo->query('SELECT DATABASE()')->fetchColumn();
+
+$refusal = DumpGuard::refusal($database, $dumpDir, DumpGuard::latestDumpTime($dumpDir), time());
+if ($refusal !== null) {
+    // A directory this process cannot read looks exactly like an empty one, and the two
+    // are fixed by different things.
+    if (!is_dir($dumpDir) || !is_readable($dumpDir)) {
+        $refusal .= "\n$dumpDir cannot be read from here, so a dump inside it is not seen.\n";
+    }
+    fwrite(STDERR, "\n" . $refusal);
+    exit(1);
 }
 
 try {
