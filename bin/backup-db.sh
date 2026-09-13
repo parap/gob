@@ -66,8 +66,14 @@ fi
 
 gzip -t "$partial" 2>/dev/null         || refuse "$name is not a readable archive"
 
+# A crude backstop under the two checks below, which are the ones that actually catch a
+# truncated dump. Calibrated against a real dump of this database rather than guessed: a
+# complete one with no players is already several times this. A threshold set by eye
+# condemns good backups, which is a worse failure than the one it guards against, because
+# it is the checks themselves that stop being trusted.
 size=$(stat -c %s "$partial")
-[ "$size" -ge 20000 ]                  || refuse "$name is only $size bytes"
+[ "$size" -ge "${BACKUP_MIN_BYTES:-2000}" ] \
+    || refuse "$name is only $size bytes"
 
 # grep reads from a process substitution, not from a pipe. Under pipefail a `grep -q` that
 # stops at the first match kills zcat with SIGPIPE and the pipeline reports 141 -- so a

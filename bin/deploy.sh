@@ -101,7 +101,12 @@ ssh "$HOST" "set -euo pipefail
     # Before the migrations, not after. git reset returns the code; nothing returns a
     # column a migration dropped, so this is the only thing between a bad migration and
     # every account on the server.
-    echo '  dumped to' \$(bin/backup-db.sh pre-deploy \$(git rev-parse --short HEAD))
+    # Assigned on its own line, not interpolated into an echo. A command substitution
+    # used as an argument reports its status to nobody: the echo succeeds, set -e sees
+    # nothing, and a refused dump is followed straight into the migrations it exists to
+    # protect against. An assignment carries the status, so a failed dump stops here.
+    dump=\$(bin/backup-db.sh pre-deploy \$(git rev-parse --short HEAD))
+    echo \"  dumped to \$dump\"
 
     # schema.sql only ever ran while the volume was being created, so a schema change
     # arrives here or not at all.
