@@ -1,6 +1,6 @@
 # Dev stack: Caddy (web) + PHP-FPM (app) + MySQL (db).
 # Start it all with:  docker compose up
-# The game is then at http://localhost:8080
+# The game is then at http://localhost:8090 (phpMyAdmin at http://localhost:8091).
 
 services:
   caddy:
