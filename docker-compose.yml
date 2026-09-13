@@ -49,8 +49,10 @@ services:
       - "127.0.0.1:3307:3306"   # optional: inspect the DB from the host on port 3307
     volumes:
       - dbdata:/var/lib/mysql
-      # schema.sql runs automatically the first time the DB is created.
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      # Both run automatically the first time the DB is created, in name order:
+      # the test database is created before the schema lands in the main one.
+      - ./docker/mysql/test-db.sql:/docker-entrypoint-initdb.d/00-test-db.sql:ro
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
       interval: 5s

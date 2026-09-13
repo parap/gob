@@ -87,6 +87,22 @@ Running list of loose ends and next steps. See `ideas.md` (raw brainstorm) and
       why the Mad Cultist is "good". Lower priority — nothing reads alignment
       mechanically yet, but it shows in the UI badges.
 
+## Tests
+- [x] **PHPUnit across the whole codebase.** Domain, repositories, the
+      procedural handler layer, and an HTTP layer for the refusals a handler
+      delivers by ending the request. Validated by injecting 62 deliberate
+      faults chosen from a list written beforehand; all 62 are caught. Three
+      first-draft tests compared a function against the constant it is built
+      from, which passes whatever the constant is changed to — those now pin
+      the numbers.
+- [ ] **`json()` ends the request, so handler routes are only reachable over
+      HTTP.** Having it throw a caught exception instead would bring the route
+      bodies into the in-process suite. A real improvement, but a change to
+      how every response is delivered: worth its own slice.
+- [ ] **World generation is thinly covered.** `generateProvince` and the site
+      scatter in `world.php` are exercised through their repository calls, not
+      as generation: nothing asserts the shape of a generated province.
+
 ## Housekeeping
 - [ ] **Refresh project memory** — it hasn't been updated since the RPG-layer slice
       or the OOP refactor; record the `Domain` / `Repository` architecture so future

@@ -10,6 +10,12 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <php>
+        <!-- Repository tests build this schema from schema.sql and delete what
+             they create. The name must end in _test; the base class refuses
+             anything else so a suite can never chew through the dev database. -->
+        <env name="DB_TEST_NAME" value="gob_test"/>
+    </php>
     <source>
         <include>
             <directory>src</directory>
