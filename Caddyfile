@@ -1,16 +1,23 @@
-# Dev Caddyfile. Serves static files from /public and routes the rest to PHP.
-# In production this becomes `yourdomain.com { ... }` and Caddy adds HTTPS.
+# The game's web server, on both a laptop and the server. It always listens on plain :80
+# and never holds a certificate: the deployment puts a shared proxy in front which
+# terminates TLS for goblin.danskidioms.com and forwards here over the `edge` network.
+#
+# This container exists rather than pointing the shared proxy straight at PHP because
+# php-fpm speaks FastCGI, not HTTP, and because static files should come off disk without
+# involving PHP at all.
+
 :80 {
 	root * /var/www/html/public
 	encode gzip
 
-	# Dev only: never cache CSS/JS so the browser always gets the latest edit.
-	# (Remove or replace with long-lived caching in production.)
+	# The game ships un-versioned asset filenames, so a cached copy is a stale copy and
+	# there is no URL change to tell a browser otherwise. Revisit together with a build
+	# step that fingerprints them.
 	@assets path *.css *.js
 	header @assets Cache-Control "no-store"
 
-	# Serves existing static files; sends everything else to index.php,
-	# and proxies .php requests to the php-fpm container.
+	# Serves existing static files; sends everything else to index.php, and proxies .php
+	# requests to the php-fpm container.
 	php_fastcgi php:9000
 
 	file_server

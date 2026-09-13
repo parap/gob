@@ -1,20 +1,41 @@
-# Dev stack: Caddy (web) + PHP-FPM (app) + MySQL (db).
-# Start it all with:  docker compose up
-# The game is then at http://localhost:8090 (phpMyAdmin at http://localhost:8091).
+# The game's own stack: Caddy (static files + FastCGI) → PHP-FPM → MySQL.
+#
+#   docker compose up -d          # http://localhost:8090, phpMyAdmin on :8091
+#
+# The same file runs the deployment. What differs between a laptop and the server is
+# entirely in .env: which interface each port binds to, and the database passwords. See
+# .env.example, and `bin/deploy.sh` for how the server gets its copy.
+#
+# On the server this project publishes nothing to the internet. The web container joins the
+# shared `edge` network and the proxy there terminates TLS for goblin.danskidioms.com; the
+# ports below bind the loopback and are reached over `ssh -L`.
 
 services:
-  caddy:
+  web:
     image: caddy:2
+    container_name: gob_web
+    restart: unless-stopped
     ports:
-      - "8090:80"
+      # Where a developer reaches the game directly. A deployment that terminates TLS in
+      # front of it binds this to the loopback (WEB_BIND=127.0.0.1:8090 in .env), so the
+      # proxy holding the certificate is the only way in from outside.
+      - "${WEB_BIND:-8090}:80"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./:/var/www/html:ro
+    networks:
+      # default carries the FastCGI connection to php; edge carries requests in from the
+      # shared proxy. The database is on default alone, so nothing outside this project
+      # can reach it by name.
+      - default
+      - edge
     depends_on:
       - php
 
   php:
     build: ./docker/php
+    container_name: gob_php
+    restart: unless-stopped
     volumes:
       - ./:/var/www/html
     environment:
@@ -22,15 +43,52 @@ services:
       DB_PORT: 3306
       DB_NAME: gob
       DB_USER: gob
-      DB_PASS: gobdevpass
+      # No default: a working password in a committed file is a published credential the
+      # moment the repository is, and this one is public. Set it in .env, which is
+      # gitignored, and give the server a different value from the laptop's.
+      DB_PASS: ${DB_PASS:?set DB_PASS in .env — see .env.example}
     depends_on:
       db:
         condition: service_healthy
 
+  db:
+    image: mysql:8.4
+    container_name: gob_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: gob
+      MYSQL_USER: gob
+      MYSQL_PASSWORD: ${DB_PASS:?set DB_PASS in .env — see .env.example}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+    ports:
+      # Loopback by default, so a GUI client on the host can attach on 3307 and nothing
+      # else can. Docker publishes ports through its own nat and FORWARD chains rather
+      # than INPUT, so a published port is not covered by the host firewall at all.
+      - "${DB_BIND:-127.0.0.1:3307}:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+      # Both run automatically the first time the database is created, in name order: the
+      # test database is created before the schema lands in the main one. They do not run
+      # again on an existing volume — a schema change after the first deploy needs a
+      # migration, not this directory.
+      - ./docker/mysql/test-db.sql:/docker-entrypoint-initdb.d/00-test-db.sql:ro
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      # Reads the container's own environment rather than interpolating the secret into
+      # this file. $$ escapes it from compose so the shell inside expands it.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   phpmyadmin:
     image: phpmyadmin:latest
+    container_name: gob_pma
+    restart: unless-stopped
     ports:
-      - "8091:80"
+      # Loopback only, on the laptop as well as the server: a database admin panel on a
+      # public port is the whole database. Reach it with ssh -L 8091:localhost:8091.
+      - "${PMA_BIND:-127.0.0.1:8091}:80"
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
@@ -38,26 +96,12 @@ services:
       db:
         condition: service_healthy
 
-  db:
-    image: mysql:8.4
-    environment:
-      MYSQL_DATABASE: gob
-      MYSQL_USER: gob
-      MYSQL_PASSWORD: gobdevpass
-      MYSQL_ROOT_PASSWORD: rootpass
-    ports:
-      - "127.0.0.1:3307:3306"   # optional: inspect the DB from the host on port 3307
-    volumes:
-      - dbdata:/var/lib/mysql
-      # Both run automatically the first time the DB is created, in name order:
-      # the test database is created before the schema lands in the main one.
-      - ./docker/mysql/test-db.sql:/docker-entrypoint-initdb.d/00-test-db.sql:ro
-      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
+networks:
+  # External and created by hand, so no project's teardown can take it from the others:
+  #   docker network create edge
+  edge:
+    external: true
+    name: edge
 
 volumes:
   dbdata:
