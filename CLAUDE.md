@@ -18,15 +18,21 @@ may be someone playing.
 - A broken save is a broken game until the next one, so run the suite before moving on.
   Work too large to be seen half-finished belongs on a branch.
 
-## Tests
+## Tests run on a development machine, not on the server
 
 ```
 docker exec gob_php vendor/bin/phpunit
 ```
 
 The container holds the PHP version the project requires and reaches both the database and
-the running stack, so the suite passes nowhere else. `README.md` describes what each of the
-four layers covers and how the throwaway `gob_test` schema is built.
+the running stack, so the suite runs there rather than on the host.
+
+The deployment carries no development dependencies on purpose: `composer.json` requires
+only php, `public/index.php` registers its own PSR-4 loader when `vendor/` is absent, and
+the image has no composer. The command above therefore fails on the server with a missing
+file rather than with a failing test, and **a change written directly in the server's
+checkout is live and unverified**. Say so when handing it over, and run the suite from a
+checkout at that same commit before building anything on top of it.
 
 ## Schema changes go through `db/migrations/`
 
