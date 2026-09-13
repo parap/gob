@@ -5,9 +5,13 @@
 #   bin/deploy.sh              # test, deploy, verify
 #   bin/deploy.sh --no-tests   # skip PHPUnit (it needs the local containers up)
 #
-# The game has no runtime dependencies -- composer.json requires only php itself, phpunit
-# is dev-only, and public/index.php registers its own PSR-4 loader when vendor/ is absent.
-# So there is no dependency step here, and its absence is deliberate rather than forgotten.
+# Two steps a "git pull && docker compose up" misses, both silently: the pre-deploy dump,
+# and the migrations -- schema.sql runs only while the volume is being created, so a schema
+# change reaches the server through db/migrations/ or not at all, and its absence surfaces
+# as a missing column on somebody's request rather than here.
+#
+# There is deliberately no dependency step: composer.json requires only php, phpunit is
+# dev-only, and public/index.php registers its own PSR-4 loader when vendor/ is absent.
 #
 # What it will not do is roll back. A failed check prints the previous commit and the
 # command to return to it: the checkout moves backwards easily, the database does not.
@@ -46,22 +50,30 @@ ssh "$HOST" "set -euo pipefail
     [ -d $DIR/.git ] || git clone -q --branch $BRANCH $REPO $DIR
     cd $DIR
 
-    # Written on the server, read by nothing else, and never printed. Two passwords the
-    # laptop does not know and no transcript records; the ones in this repository's history
-    # are development values and must not become the deployment's.
-    if [ ! -f .env ]; then
-        umask 077
-        {
-            echo \"DB_PASS=\$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)\"
-            echo \"MYSQL_ROOT_PASSWORD=\$(openssl rand -base64 24 | tr -d '/+=' | head -c 32)\"
-            echo 'WEB_BIND=127.0.0.1:8090'
-            echo 'PMA_BIND=127.0.0.1:8091'
-            echo 'DB_BIND=127.0.0.1:3307'
-        } > .env
-        echo '  .env created with generated passwords'
-    else
-        echo '  .env already present, left alone'
-    fi
+    # Generated on the server, read by nothing else, and never printed. The values the
+    # laptop does not know and no transcript records; the passwords in this repository's
+    # history are development ones and must not become the deployment's.
+    #
+    # Key by key rather than all-or-nothing, so a key added later lands on a server whose
+    # .env already exists -- the alternative is a variable that is simply missing, and an
+    # empty GOB_INVITE_CODE means the gate is open, which fails in the unsafe direction.
+    umask 077
+    touch .env
+    add_key() {
+        grep -q \"^\$1=\" .env && return 0
+        echo \"\$1=\$2\" >> .env
+        echo \"  .env: added \$1\"
+    }
+    secret() { openssl rand -base64 24 | tr -d '/+=' | head -c 32; }
+
+    add_key DB_PASS \"\$(secret)\"
+    add_key MYSQL_ROOT_PASSWORD \"\$(secret)\"
+    add_key WEB_BIND 127.0.0.1:8090
+    add_key PMA_BIND 127.0.0.1:8091
+    add_key DB_BIND 127.0.0.1:3307
+    # Non-empty, so a public name can be looked at but not signed up to.
+    add_key GOB_INVITE_CODE \"\$(secret)\"
+    chmod 600 .env
 
     docker network inspect edge >/dev/null 2>&1 || docker network create edge >/dev/null
 "
@@ -85,6 +97,15 @@ ssh "$HOST" "set -euo pipefail
         curl -sf -m 5 -o /dev/null http://127.0.0.1:8090/ && break
         sleep 2
     done
+
+    # Before the migrations, not after. git reset returns the code; nothing returns a
+    # column a migration dropped, so this is the only thing between a bad migration and
+    # every account on the server.
+    echo '  dumped to' \$(bin/backup-db.sh pre-deploy \$(git rev-parse --short HEAD))
+
+    # schema.sql only ever ran while the volume was being created, so a schema change
+    # arrives here or not at all.
+    $COMPOSE exec -T php php bin/migrate.php | sed 's/^/  /'
 "
 
 # ---- the verdict, taken from outside --------------------------------------------------

@@ -26,6 +26,12 @@ function handleRegister(): void
     $email    = trim((string)($b['email'] ?? ''));
     $password = (string)($b['password'] ?? '');
 
+    // Decided before anything else is looked at, so a caller without the code learns
+    // nothing about which usernames or addresses are already taken.
+    if (!\Gob\Domain\Invite::accepts(getenv('GOB_INVITE_CODE') ?: null, $b['invite'] ?? null)) {
+        json(403, ['error' => 'This game is not open for registration.']);
+    }
+
     if (strlen($username) < 3 || strlen($username) > 32) {
         json(400, ['error' => 'Username must be 3–32 characters.']);
     }

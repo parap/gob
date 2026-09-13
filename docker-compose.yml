@@ -47,6 +47,9 @@ services:
       # moment the repository is, and this one is public. Set it in .env, which is
       # gitignored, and give the server a different value from the laptop's.
       DB_PASS: ${DB_PASS:?set DB_PASS in .env — see .env.example}
+      # Empty means anyone may register, which is what a laptop wants. The deployment
+      # sets it, so the public name can be looked at but not signed up to.
+      GOB_INVITE_CODE: ${GOB_INVITE_CODE:-}
     depends_on:
       db:
         condition: service_healthy

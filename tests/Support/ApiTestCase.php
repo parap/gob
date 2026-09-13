@@ -54,10 +54,13 @@ abstract class ApiTestCase extends TestCase
         $username = 'apitest_' . bin2hex(random_bytes(5));
         $this->registered[] = $username;
 
+        // Carried so the suite runs against a deployment that gates registration as well
+        // as against an open checkout, where the variable is unset and the field ignored.
         $res = $this->request('POST', '/api/auth/register', [
             'username' => $username,
             'email'    => "$username@example.test",
             'password' => 'secret123',
+            'invite'   => getenv('GOB_INVITE_CODE') ?: null,
         ]);
         $this->assertSame(201, $res['status'], 'registration failed: ' . $res['raw']);
 

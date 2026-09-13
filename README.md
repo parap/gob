@@ -70,9 +70,29 @@ ports bind the loopback and are reached over `ssh -L`.
 
 `schema.sql` and the test-database file are mounted into MySQL's init directory, which runs
 **only on a volume that does not yet exist**. The first deploy therefore builds the schema
-and seeds the catalogue; every change after that needs a migration, because a second deploy
-will not re-read them. The world itself is not seeded — provinces, settlements and sites are
-created per player at registration.
+and seeds the catalogue; every change after that arrives as a file in `db/migrations/`,
+which `bin/deploy.sh` applies. The world itself is not seeded — provinces, settlements and
+sites are created per player at registration.
+
+Every deploy dumps the database before it migrates, and a nightly dump runs from cron. The
+dump carries password hashes and is never in git; see `bin/backup-db.sh`.
+
+### Registration is closed on a public name
+
+`GOB_INVITE_CODE` gates account creation. Empty or absent means anyone may register, which
+is what a laptop wants; the deployment generates one, so a stranger who finds the name can
+look at the game but not sign up to it. Registering sends it alongside the username:
+
+```json
+{"username": "…", "email": "…", "password": "…", "invite": "…"}
+```
+
+Read the deployment's code from the server, in your own terminal rather than through a
+session that keeps a transcript:
+
+```sh
+ssh oracle 'grep GOB_INVITE_CODE gob/.env'
+```
 
 Do not run `tools/dom6/import.php` against the deployment. Its data is Dominions 6 content,
 © Illwinter Game Design, and the game is public once it is served.

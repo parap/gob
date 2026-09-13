@@ -33,3 +33,6 @@ Thumbs.db
 
 # PHPUnit
 /.phpunit.result.cache
+
+# Database dumps — player accounts and password hashes, never in git
+/backups/
