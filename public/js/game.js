@@ -116,6 +116,7 @@ async function fight(monsterId) {
     loadVillage();                      // a kill may have advanced a quest
     loadRelations();                    // the deed moved how the race sees you
     loadKnowledge();                    // meeting it may have taught you something
+    if (body.loss?.carried_home) loadWorld();   // a beating can move you
     renderCombat(body);
 }
 
@@ -267,6 +268,28 @@ function mercyLine(r) {
     return '';
 }
 
+// One line describing what the winner's people did with you, or '' when you
+// won. Stated as something that happened, never as the rule behind it: the
+// player who keeps losing to goblins they have spared is left to notice on
+// their own that the beatings have stopped ending the same way.
+function lossLine(r) {
+    const l = r.loss;
+    if (!l || r.outcome === 'win') return '';
+    const who = esc(r.monster.name);
+    const home = l.carried_home ? ' You come to on the road home.' : '';
+    if (l.outcome === 'robbed') {
+        const purse = l.gold_lost ? ` They take ${l.gold_lost} gold off you.` : '';
+        return `<div class="combat-mercy">${who} finishes it and goes through your pockets.${purse}${home}</div>`;
+    }
+    if (l.outcome === 'spared') {
+        return `<div class="combat-mercy">${who} stands over you, thinks better of it, and walks away.${home}</div>`;
+    }
+    if (l.outcome === 'helped') {
+        return `<div class="combat-mercy">${who} binds your wounds before leaving you.${home}</div>`;
+    }
+    return '';
+}
+
 function renderCombat(r, targetId = 'combat-log') {
     const rw = r.rewards;
     const rewardBits = [];
@@ -285,7 +308,7 @@ function renderCombat(r, targetId = 'combat-log') {
         return `<div class="combat-line ${e.actor}">R${e.round}: ${who} hit ${tgt} for ${e.damage} (${tgt} ${e.target_hp} hp)</div>`;
     }).join('');
 
-    $(targetId).innerHTML = head + mercyLine(r) + factGroups(r.facts) + lines;
+    $(targetId).innerHTML = head + mercyLine(r) + lossLine(r) + factGroups(r.facts) + lines;
     renderMercyWindow(r.monster.name);
 }
 

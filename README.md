@@ -16,6 +16,16 @@ See `ideas.md` for the full design direction.
 - **Web server:** Caddy (reverse proxy + automatic HTTPS)
 - **Frontend:** vanilla JavaScript (no framework, no build step)
 
+## Tests
+
+PHPUnit, run inside the app container (the host PHP is older than the 8.2 the
+project requires):
+
+```
+docker compose up -d
+docker exec gob-php-1 vendor/bin/phpunit
+```
+
 ## Status
 
 Early development.

@@ -57,9 +57,13 @@ Running list of loose ends and next steps. See `ideas.md` (raw brainstorm) and
       once its people read Neutral — which sparing can reach and nothing else
       can. Measured end to end: lang_goblin 8 -> 31, past anything the village
       scholar could offer, unlocking speech facts gated at 25.
-- [ ] **Reciprocal mercy** (§3, designed but not built): on a *loss*, the race's
-      attitude should decide the outcome — hostile robs you, neutral spares you,
-      friendly patches you up. Currently every defeat is the old flat 1 HP.
+- [x] **Reciprocal mercy** (§3). A lost fight is settled by the winner's people:
+      Monster and Curious finish you and take 15% of the purse, then carry you
+      back to the home province; Neutral — the rung sparing reaches and nothing
+      else does — leaves you breathing at 10% HP where you fell; Friendly and
+      Ally bind your wounds and leave you at 35%. A 25% no-quarter roll mirrors
+      the fanatic roll and overrides any goodwill. `Relationship::lossOutcome()`
+      and `lossToll()` hold the decision and the arithmetic, both pure.
 - [ ] **Nothing yet moves an individual's own standing.** `rel_npc` rows are
       written by the blend's propagation, but no deed targets a known person
       specifically — meet Yigna again and she is just her tribe's average. Needs

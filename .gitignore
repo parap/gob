@@ -30,3 +30,6 @@ Thumbs.db
 
 # Claude Code local working dir (session transcripts, history archive)
 /.claude/
+
+# PHPUnit
+/.phpunit.result.cache

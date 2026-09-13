@@ -13,5 +13,13 @@
     },
     "config": {
         "optimize-autoloader": true
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Gob\\Tests\\": "tests/"
+        }
     }
 }

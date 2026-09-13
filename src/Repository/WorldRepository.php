@@ -48,6 +48,15 @@ final class WorldRepository
         $this->db->prepare('UPDATE provinces SET explored_pct = ? WHERE id = ?')->execute([$pct, $id]);
     }
 
+    // Where the player is carried back to when a fight goes badly enough.
+    public function homeProvinceId(int $playerId): ?int
+    {
+        $stmt = $this->db->prepare('SELECT id FROM provinces WHERE player_id = ? AND is_home = 1 ORDER BY id LIMIT 1');
+        $stmt->execute([$playerId]);
+        $id = $stmt->fetchColumn();
+        return $id ? (int)$id : null;
+    }
+
     public function currentProvinceId(int $charId): ?int
     {
         $stmt = $this->db->prepare('SELECT current_province_id FROM characters WHERE id = ?');

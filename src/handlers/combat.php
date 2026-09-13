@@ -315,6 +315,48 @@ function mercyOutcome(bool $stance, array $m): string
     return 'spared';
 }
 
+// The mirror of the mercy stance, on the losing side (§3): what the winner's
+// people do with a beaten hero. Sparing is the one deed that lowers Hostility,
+// so a people the player has spared is the people that grants them quarter —
+// a reputation is finally spent here rather than merely displayed.
+//
+// Returns the outcome tag and what it cost, and applies the cost: gold taken
+// from the purse, and the long walk home. The hero's HP is returned for the
+// caller to persist alongside a won fight's.
+function applyLossFate(array $player, int $charId, array $c, array $m, ?int $provinceId, ?int $siteId): array
+{
+    $pid    = (int)$player['id'];
+    $race   = (string)($m['race'] ?? 'unknown');
+    $nature = (string)($m['nature'] ?? 'mortal');
+
+    // Nobody home to decide means nobody to grant quarter: a risen corpse
+    // finishes what it started whatever the race's numbers say.
+    $sparable = Relationship::isSparable($nature) && Relationship::tracksOpinion($race);
+    $stage    = $sparable
+        ? relationRepo()->effective($pid, $race, $provinceId, $siteId)->stageIndex()
+        : Relationship::STAGE_MONSTER;
+
+    $outcome = Relationship::lossOutcome($stage, $sparable, Relationship::rollNoQuarter());
+    $toll    = Relationship::lossToll($outcome, (int)$c['vitals']['hp_max'], settlementRepo()->gold($pid));
+
+    if ($toll['gold'] > 0) {
+        settlementRepo()->spendGold($pid, $toll['gold']);
+    }
+
+    $home      = $toll['sent_home'] ? worldRepo()->homeProvinceId($pid) : null;
+    $carried   = $home !== null && $home !== $provinceId;
+    if ($carried) {
+        worldRepo()->setCurrentProvince($charId, $home);
+    }
+
+    return [
+        'outcome'     => $outcome,
+        'hp'          => $toll['hp'],
+        'gold_lost'   => $toll['gold'],
+        'carried_home'=> $carried,
+    ];
+}
+
 // Simulate a fight between the hero and a monster row, persist the hero's HP,
 // grant win rewards (gold + skill training + monster loot), apply the mercy
 // stance to the beaten enemy, and return the result (outcome, rounds, log,
@@ -372,12 +414,13 @@ function resolveFight(array $player, int $charId, array $m, ?int $siteId = null)
 
     $win = $monHp <= 0 && $heroHp > 0;
 
-    // Persist the hero's HP; a defeated hero is left knocked out at 1 HP.
-    $finalHp = $heroHp > 0 ? $heroHp : 1;
-    $db->prepare('UPDATE characters SET hp = ? WHERE id = ?')->execute([$finalHp, $charId]);
-
     $rewards = ['gold' => 0, 'skills' => [], 'items' => []];
     $mercy   = ['stance' => $stance, 'outcome' => 'off', 'window' => null, 'forgone_gold' => 0];
+
+    // A lost fight is settled by the winner's people, not by a flat rule.
+    $loss    = $win ? null : applyLossFate($player, $charId, $c, $m, $provinceId, $siteId);
+    $finalHp = $win ? $heroHp : $loss['hp'];
+    $db->prepare('UPDATE characters SET hp = ? WHERE id = ?')->execute([$finalHp, $charId]);
 
     if ($win) {
         // Fighting trains the skills that did the work whatever happens to the
@@ -411,6 +454,7 @@ function resolveFight(array $player, int $charId, array $m, ?int $siteId = null)
         'hero_hp_after' => $finalHp,
         'rewards'       => $rewards,
         'mercy'         => $mercy,
+        'loss'          => $loss,
         'relation'      => relationView((int)$player['id'], $m, $provinceId, $siteId),
         // You met it: what you already knew, plus the few new things this
         // meeting was enough to take in. Both are now in the journal.

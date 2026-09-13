@@ -62,6 +62,35 @@ final class Relationship
     // a flat roll for now, a `fanatic` monster tag later (§3).
     public const FANATIC_PCT = 25;
 
+    // The mirror on the losing side: the share of winners who finish a downed
+    // player whatever their people think of them. Tuned apart from
+    // FANATIC_PCT because the two answer different questions — whether this
+    // one will be taken alive, and whether this one takes prisoners.
+    public const NO_QUARTER_PCT = 25;
+
+    // What a lost fight leaves the player with (§3). Sparing is what lowers
+    // Hostility, so the player who spares a people is the player that people
+    // spares back — the loss outcome is where a reputation is finally spent.
+    public const LOSS_ROBBED = 'robbed';
+    public const LOSS_SPARED = 'spared';
+    public const LOSS_HELPED = 'helped';
+
+    // The rung at which a people grants quarter, and the one at which they
+    // put you back on your feet. Stated against the ladder so the payoff
+    // cannot drift away from the floor sparing reaches.
+    public const LOSS_QUARTER_STAGE = self::STAGE_NEUTRAL;
+    public const LOSS_HELP_STAGE    = self::STAGE_FRIENDLY;
+
+    // Consequences per outcome. `hp_pct` is a share of maximum HP, floored at
+    // one by the caller, so robbed is the knocked-out-at-1-HP the engine has
+    // always done and the kinder outcomes read as degrees of care. `gold_pct`
+    // is the share of the purse taken.
+    public const LOSS_EFFECTS = [
+        self::LOSS_ROBBED => ['hp_pct' => 0,  'gold_pct' => 15, 'sent_home' => true],
+        self::LOSS_SPARED => ['hp_pct' => 10, 'gold_pct' => 0,  'sent_home' => false],
+        self::LOSS_HELPED => ['hp_pct' => 35, 'gold_pct' => 0,  'sent_home' => false],
+    ];
+
     // Deed magnitudes, applied at the most specific known scope and halved
     // outward from there (see RelationshipRepository::applyDeed).
     public const SPARE_HOSTILITY_DROP = 6;
@@ -108,6 +137,42 @@ final class Relationship
     public static function rollFanatic(): bool
     {
         return random_int(1, 100) <= self::FANATIC_PCT;
+    }
+
+    // Roll whether this particular winner takes no prisoners.
+    public static function rollNoQuarter(): bool
+    {
+        return random_int(1, 100) <= self::NO_QUARTER_PCT;
+    }
+
+    // What a loss outcome actually costs this hero: the HP they wake on, the
+    // gold taken from them, and whether they wake somewhere else.
+    public static function lossToll(string $outcome, int $hpMax, int $gold): array
+    {
+        $effects = self::LOSS_EFFECTS[$outcome];
+
+        return [
+            'hp'        => max(1, intdiv($hpMax * $effects['hp_pct'], 100)),
+            'gold'      => max(0, intdiv($gold * $effects['gold_pct'], 100)),
+            'sent_home' => $effects['sent_home'],
+        ];
+    }
+
+    // What the winner does with a downed player. $sparable is false when
+    // nobody is home to decide — a statue, a risen corpse — and $noQuarter is
+    // the per-encounter roll that overrides any goodwill.
+    public static function lossOutcome(int $stage, bool $sparable, bool $noQuarter): string
+    {
+        if (!$sparable || $noQuarter) {
+            return self::LOSS_ROBBED;
+        }
+        if ($stage >= self::LOSS_HELP_STAGE) {
+            return self::LOSS_HELPED;
+        }
+        if ($stage >= self::LOSS_QUARTER_STAGE) {
+            return self::LOSS_SPARED;
+        }
+        return self::LOSS_ROBBED;
     }
 
     public static function clamp(int $v): int
