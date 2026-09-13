@@ -110,7 +110,7 @@ ssh "$HOST" "set -euo pipefail
 
     # schema.sql only ever ran while the volume was being created, so a schema change
     # arrives here or not at all.
-    $COMPOSE exec -T php php bin/migrate.php | sed 's/^/  /'
+    $COMPOSE exec -T php php bin/migrate.php --dump=\"\$dump\" | sed 's/^/  /'
 "
 
 # ---- the verdict, taken from outside --------------------------------------------------

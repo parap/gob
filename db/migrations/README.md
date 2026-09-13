@@ -17,12 +17,17 @@ so the existing one catches up.
 
 ```sh
 docker exec gob_php php bin/migrate.php --status   # what is pending, changes nothing
-docker exec gob_php php bin/migrate.php            # apply it
+
+dump=$(bin/backup-db.sh pre-deploy $(git rev-parse --short HEAD))
+docker compose exec -T php php bin/migrate.php --dump="$dump"
 ```
 
-Applying refuses outright when the database is not a throwaway `_test` schema and the
-newest dump in `backups/` is older than half an hour: `git reset` returns the code, and
-nothing returns a column a migration dropped. `--status` reads the ledger and is exempt.
+Applying names the dump taken for it, and is refused without one on any database that is
+not a throwaway `_test` schema: `git reset` returns the code, and nothing returns a column
+a migration dropped. The name is what makes it a guarantee — the directory also holds
+dumps taken for other changes, and age alone cannot tell those from a dump taken for this
+migration. A named dump older than half an hour is refused too. `--status` reads the
+ledger and is exempt.
 
 `bin/deploy.sh` runs it on every deploy. Applied versions are recorded in
 `schema_migrations`, and a file is recorded only once all of its statements have landed —
