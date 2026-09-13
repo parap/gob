@@ -15,7 +15,7 @@ final class SettlementRepository
     public function createStarting(int $playerId): void
     {
         $this->db->prepare('INSERT INTO settlements (player_id, name, terrain) VALUES (?, ?, ?)')
-                 ->execute([$playerId, 'Capital', 'plains']);
+                 ->execute([$playerId, 'Main City', 'plains']);
     }
 
     // All of a player's settlement rows, oldest first.
