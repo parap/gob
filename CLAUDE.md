@@ -45,9 +45,13 @@ Dump first, then migrate — in that order, because the dump is what the migrati
 protected by:
 
 ```
-bin/backup-db.sh pre-deploy $(git rev-parse --short HEAD)
-docker compose exec -T php php bin/migrate.php
+dump=$(bin/backup-db.sh pre-deploy $(git rev-parse --short HEAD))
+docker compose exec -T php php bin/migrate.php --dump="$dump"
 ```
+
+`bin/migrate.php` refuses to touch a database that is not a throwaway `_test` schema
+unless it is handed the dump taken for the migration, so the order above is enforced
+rather than remembered.
 
 ## Deployment runs from the laptop
 
