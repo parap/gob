@@ -28,12 +28,17 @@ const STUDY_OPEN_ROUTES = [
     'POST /api/training/cancel',
 ];
 
-// The single gate. Called by the router before any handler runs, so a route is
-// locked by default and has to be listed above to work during a lesson — a new
-// action cannot quietly become something you can do while studying.
+// Locked by default: a route has to be listed above to work during a lesson,
+// so a new action cannot quietly become something you can do while studying.
+function routeOpenDuringLesson(string $method, string $route): bool
+{
+    return $method === 'GET' || in_array($route, STUDY_OPEN_ROUTES, true);
+}
+
+// The single gate. Called by the router before any handler runs.
 function requireNotStudying(string $method, string $route): void
 {
-    if ($method === 'GET' || in_array($route, STUDY_OPEN_ROUTES, true)) {
+    if (routeOpenDuringLesson($method, $route)) {
         return;
     }
     // Not logged in: let the handler answer with its own 401.

@@ -248,40 +248,35 @@ final class TrainingTest extends HandlerTestCase
 
     // --- the study lock ---------------------------------------------------
 
+    // The gate's own calls answer the request and exit, so these test the
+    // decision it acts on; a lesson in progress is covered through the running app.
     public function testReadingIsAlwaysAllowedDuringALesson(): void
     {
-        requireNotStudying('GET', 'GET /api/character/me');
-        $this->assertTrue(true, 'a GET returns rather than answering the request itself');
+        $this->assertTrue(routeOpenDuringLesson('GET', 'GET /api/character/me'));
     }
 
     public function testGivingUpIsAlwaysOnTheTable(): void
     {
-        requireNotStudying('POST', 'POST /api/training/cancel');
-        $this->assertTrue(true);
+        $this->assertTrue(routeOpenDuringLesson('POST', 'POST /api/training/cancel'));
     }
 
     // Being unable to log out of a lesson would be a trap rather than a cost.
     public function testAuthenticationIsNeverLockedBehindALesson(): void
     {
         foreach (['POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/logout'] as $route) {
-            requireNotStudying('POST', $route);
+            $this->assertTrue(routeOpenDuringLesson('POST', $route), $route);
         }
-        $this->assertTrue(true);
+    }
+
+    public function testAnActionIsLockedDuringALesson(): void
+    {
+        $this->assertFalse(routeOpenDuringLesson('POST', 'POST /api/combat/attack'));
     }
 
     // Locked by default: a route added later cannot quietly become something
     // you can do while studying.
-    public function testEveryActionRouteIsLockedByDefault(): void
+    public function testARouteNobodyListedIsLocked(): void
     {
-        $front = file_get_contents(dirname(__DIR__, 2) . '/public/index.php');
-        preg_match_all("/'(POST [^']+)'\s*=>/", $front, $m);
-
-        $this->assertNotEmpty($m[1], 'no POST routes found to check');
-        foreach ($m[1] as $route) {
-            if (in_array($route, STUDY_OPEN_ROUTES, true)) {
-                continue;
-            }
-            $this->assertNotContains($route, STUDY_OPEN_ROUTES);
-        }
+        $this->assertFalse(routeOpenDuringLesson('POST', 'POST /api/written/after/this/test'));
     }
 }
